@@ -35,8 +35,8 @@ After `1.0.0`, follow plain semver: `patch` for fixes, `minor` for backwards-com
 
 ## Repository settings
 
-- Protect `main`, require the `CI` checks, and allow GitHub Actions to create and approve pull requests (`Settings` → `Actions` → `General`) so the version pull request can be opened.
-- The `publish` job needs `id-token: write`; it is already declared per job in `.github/workflows/release.yml`.
+- Protect `main`, require the `CI` checks (`Lint and type check`, `Test on Node 22`, `Test on Node 24`, `Verify package contents`), and allow GitHub Actions to create and approve pull requests (`Settings` → `Actions` → `General`) so the version pull request can be opened.
+- The `publish` job needs `id-token: write`; it is already declared per job in `.github/workflows/release.yml`. Trusted publishing attaches a provenance attestation automatically, so `--provenance` is not passed anywhere.
 
 ## Manual fallback
 
@@ -44,10 +44,10 @@ If Actions is unavailable:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm release:version         # bumps version and changelog
+pnpm release:version   # bumps version and changelog
 git commit -am "chore(release): version packages"
-npm publish --no-provenance  # provenance needs the CI OIDC token
-pnpm release:tag             # changeset git-tag
+npm publish            # asks for an OTP, publishes without provenance
+pnpm release:tag       # changeset git-tag
 git push --follow-tags
 ```
 

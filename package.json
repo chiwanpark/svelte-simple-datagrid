@@ -12,11 +12,10 @@
 	"bugs": "https://github.com/chiwanpark/svelte-simple-datagrid/issues",
 	"packageManager": "pnpm@12.3.4",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"publishConfig": {
-		"access": "public",
-		"provenance": true
+		"access": "public"
 	},
 	"scripts": {
 		"dev": "vite dev",
