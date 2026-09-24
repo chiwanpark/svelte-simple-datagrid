@@ -7,8 +7,7 @@ export interface CsvOptions<TRow> extends ExportOptions<TRow> {
 }
 
 export function escapeCsvValue(text: string, delimiter = ','): string {
-	const needsQuotes =
-		text.includes(delimiter) ||
+	const needsQuotes = text.includes(delimiter) ||
 		text.includes('"') ||
 		text.includes('\n') ||
 		text.includes('\r') ||

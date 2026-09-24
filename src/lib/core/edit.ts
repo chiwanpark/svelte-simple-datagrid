@@ -30,8 +30,9 @@ export function defaultParse(text: string, previousValue: unknown): unknown {
 }
 
 export function normalizeOptions<TRow>(column: Column<TRow>, row: TRow): SelectOptionItem[] {
-	const source =
-		typeof column.options === 'function' ? column.options(row) : (column.options ?? []);
+	const source = typeof column.options === 'function'
+		? column.options(row)
+		: (column.options ?? []);
 
 	return source.map((option) => {
 		if (option !== null && typeof option === 'object') {
@@ -101,10 +102,9 @@ export function applyCellChanges<TRow>(
 
 		if (!touched.has(change.rowIndex)) {
 			const source = next[change.rowIndex];
-			next[change.rowIndex] =
-				source && typeof source === 'object' && !Array.isArray(source)
-					? ({ ...source } as TRow)
-					: source;
+			next[change.rowIndex] = source && typeof source === 'object' && !Array.isArray(source)
+				? ({ ...source } as TRow)
+				: source;
 			touched.add(change.rowIndex);
 		}
 

@@ -1,0 +1,53 @@
+{
+	"lineWidth": 100,
+	"indentWidth": 2,
+	"useTabs": true,
+	"typescript": {
+		"quoteStyle": "preferSingle",
+		"trailingCommas": "never",
+		"operatorPosition": "sameLine",
+		"conditionalExpression.operatorPosition": "nextLine",
+		"forOfStatement.preferHanging": true,
+		"arrowFunction.useParentheses": "force",
+		"module.sortImportDeclarations": "maintain",
+		"module.sortExportDeclarations": "maintain",
+		"importDeclaration.sortNamedImports": "maintain",
+		"exportDeclaration.sortNamedExports": "maintain",
+		"ifStatement.useBraces": "maintain",
+		"forStatement.useBraces": "maintain",
+		"forInStatement.useBraces": "maintain",
+		"forOfStatement.useBraces": "maintain",
+		"whileStatement.useBraces": "maintain"
+	},
+	"json": {
+		"packageJson.applyConventions": false
+	},
+	"markdown": {
+		"textWrap": "maintain"
+	},
+	"malva": {
+		"quotes": "preferSingle"
+	},
+	"markup": {
+		"scriptIndent": true,
+		"styleIndent": true,
+		"closingTagLineBreakForEmpty": "never",
+		"doctypeKeywordCase": "lower"
+	},
+	"yaml": {
+		"quotes": "preferSingle",
+		"indentBlockSequenceInMap": false
+	},
+	"excludes": [
+		"pnpm-lock.yaml",
+		"static"
+	],
+	"plugins": [
+		"https://plugins.dprint.dev/typescript-0.96.1.wasm",
+		"https://plugins.dprint.dev/json-0.24.0.wasm",
+		"https://plugins.dprint.dev/markdown-0.24.0.wasm",
+		"https://plugins.dprint.dev/g-plane/malva-v0.16.0.wasm",
+		"https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.3.wasm",
+		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm"
+	]
+}

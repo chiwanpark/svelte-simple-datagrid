@@ -170,7 +170,10 @@ const columns: Column<Person>[] = [
 	<span class="badge">{value ? 'In stock' : 'Out'}</span>
 {/snippet}
 
-<DataGrid rows={rows} columns={[{ id: 'inStock', header: 'Stock', value: (r) => r.inStock, cell: stock }]} />
+<DataGrid
+	rows={rows}
+	columns={[{ id: 'inStock', header: 'Stock', value: (r) => r.inStock, cell: stock }]}
+/>
 ```
 
 `cell` receives `{ row, rowIndex, value, text, column, focused, selected }`, `headerCell` receives `{ column, sort }`, and `editor` receives `{ row, rowIndex, value, column, commit, cancel }`.
@@ -377,7 +380,8 @@ pnpm install
 pnpm dev          # demo app in src/routes
 pnpm test         # unit tests (node) and component tests (jsdom)
 pnpm check        # svelte-check + TypeScript
-pnpm lint         # prettier + eslint
+pnpm lint         # dprint + oxlint
+pnpm format       # format with dprint
 pnpm build        # build the demo app and package the library
 pnpm changeset    # record a version bump for your change
 ```

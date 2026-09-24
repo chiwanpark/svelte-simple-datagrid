@@ -18,15 +18,15 @@ jobs:
     name: Lint and type check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm check
+    - uses: actions/checkout@v7
+    - uses: pnpm/setup@v2
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm lint
+    - run: pnpm check
 
   test:
     name: Test on Node ${{ matrix.node-version }}
@@ -36,31 +36,31 @@ jobs:
       matrix:
         node-version: [22, 24]
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm build
+    - uses: actions/checkout@v7
+    - uses: pnpm/setup@v2
+    - uses: actions/setup-node@v7
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm test
+    - run: pnpm build
 
   package:
     name: Verify package contents
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm prepack
-      - run: pnpm pack --pack-destination /tmp
-      - uses: actions/upload-artifact@v7
-        with:
-          name: package-tarball
-          path: /tmp/*.tgz
-          if-no-files-found: error
+    - uses: actions/checkout@v7
+    - uses: pnpm/setup@v2
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm prepack
+    - run: pnpm pack --pack-destination /tmp
+    - uses: actions/upload-artifact@v7
+      with:
+        name: package-tarball
+        path: /tmp/*.tgz
+        if-no-files-found: error
