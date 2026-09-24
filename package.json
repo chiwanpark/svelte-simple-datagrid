@@ -8,7 +8,7 @@
 		"type": "git",
 		"url": "git+https://github.com/chiwanpark/svelte-simple-datagrid.git"
 	},
-	"homepage": "https://github.com/chiwanpark/svelte-simple-datagrid#readme",
+	"homepage": "https://chiwanpark.github.io/svelte-simple-datagrid/",
 	"bugs": "https://github.com/chiwanpark/svelte-simple-datagrid/issues",
 	"packageManager": "pnpm@12.3.4",
 	"engines": {
@@ -67,7 +67,7 @@
 		"@changesets/changelog-github": "^1.0.1",
 		"@changesets/cli": "^3.0.2",
 		"@eslint/js": "^10.0.1",
-		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/package": "^2.5.8",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
