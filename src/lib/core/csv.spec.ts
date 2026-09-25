@@ -58,6 +58,28 @@ describe('buildExportTable', () => {
 		expect(table.header).toEqual([]);
 		expect(table.body.map((line) => line[0].text)).toEqual(['30', '35', '25']);
 	});
+
+	it('prepends row numbers when asked', () => {
+		const table = buildExportTable(rows.slice(0, 2), [columns[0]], { rowNumbers: true });
+
+		expect(table.header).toEqual(['', 'Name']);
+		expect(table.body.map((line) => line[0])).toEqual([
+			{ value: 1, text: '1' },
+			{ value: 2, text: '2' }
+		]);
+	});
+
+	it('applies the row number header and format', () => {
+		const table = buildExportTable(rows.slice(0, 2), [columns[0]], {
+			rowNumbers: { header: '#', format: (value, row) => `${value}-${row.age}` }
+		});
+
+		expect(table.header).toEqual(['#', 'Name']);
+		expect(table.body.map((line) => line[0])).toEqual([
+			{ value: 1, text: '1-30' },
+			{ value: 2, text: '2-35' }
+		]);
+	});
 });
 
 describe('toCsv', () => {
@@ -79,5 +101,10 @@ describe('toCsv', () => {
 
 	it('exports an empty grid as just the header', () => {
 		expect(toCsv([], columns)).toBe('Name,Age,Active');
+	});
+
+	it('writes row numbers as the first column', () => {
+		const csv = toCsv(rows.slice(0, 2), [columns[1]], { rowNumbers: { header: 'No' } });
+		expect(csv).toBe('No,Age\r\n1,30\r\n2,35');
 	});
 });

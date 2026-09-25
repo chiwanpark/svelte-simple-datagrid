@@ -47,6 +47,7 @@ export type {
 	FocusedCell,
 	GridTheme,
 	HeaderContext,
+	RowNumbersOptions,
 	SelectionRect,
 	SelectOption,
 	SelectOptionItem,
@@ -60,6 +61,7 @@ export type { CsvDownloadOptions } from './core/download.js';
 export type {
 	ExportCell,
 	ExportOptions,
+	ExportRowNumbers,
 	ExportTable,
 	XlsxExporter,
 	XlsxOptions,

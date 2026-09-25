@@ -57,4 +57,12 @@ describe('DataGrid rendering', () => {
 		expect(body).not.toContain('Carol');
 		expect(body).toContain('1–2 of 3');
 	});
+
+	it('renders row numbers when enabled', () => {
+		const plain = render(Grid, { props: { rows, columns } });
+		expect(plain.body).not.toContain('ssdg-row-number');
+
+		const { body } = render(Grid, { props: { rows, columns, rowNumbers: true } });
+		expect(body.match(/<th scope="row"[^>]*ssdg-row-number/g)).toHaveLength(3);
+	});
 });

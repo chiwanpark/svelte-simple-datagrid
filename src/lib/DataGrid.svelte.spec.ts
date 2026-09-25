@@ -1,7 +1,7 @@
 import { flushSync, mount, tick, unmount, type Component } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DataGrid from './DataGrid.svelte';
-import type { CellChange, Column, DataGridProps } from './core/types.js';
+import type { CellChange, Column, ContextMenuItem, DataGridProps } from './core/types.js';
 
 interface Person {
 	name: string;
@@ -644,6 +644,221 @@ describe('column resizing', () => {
 	});
 });
 
+describe('row numbers', () => {
+	function rowNumber(table: HTMLTableElement, row: number) {
+		return table.querySelectorAll<HTMLTableCellElement>('tbody th.ssdg-row-number')[row];
+	}
+
+	function corner(table: HTMLTableElement) {
+		return table.querySelector('thead th.ssdg-row-number') as HTMLTableCellElement;
+	}
+
+	function rowNumberTexts(table: HTMLTableElement) {
+		return [...table.querySelectorAll('tbody th.ssdg-row-number')].map((cell) =>
+			cell.textContent?.trim()
+		);
+	}
+
+	function openMenu(element: Element) {
+		element.dispatchEvent(
+			new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 })
+		);
+		flushSync();
+	}
+
+	it('is hidden by default', () => {
+		const { table } = setup();
+		expect(table.querySelector('.ssdg-row-number')).toBeNull();
+	});
+
+	it('numbers the rows in display order', () => {
+		const { table } = setup({ rowNumbers: true });
+
+		expect(rowNumberTexts(table)).toEqual(['1', '2', '3']);
+
+		const header = table.querySelector('button.ssdg-sort') as HTMLButtonElement;
+		header.click();
+		flushSync();
+		header.click();
+		flushSync();
+
+		const names = [...table.querySelectorAll('td[data-col="0"]')].map((cell) => cell.textContent);
+		expect(names).toEqual(['Carol', 'Bob', 'Alice']);
+		expect(rowNumberTexts(table)).toEqual(['1', '2', '3']);
+	});
+
+	it('keeps counting across pages', () => {
+		const { target, table } = setup({ rowNumbers: true, paginated: true, pageSize: 2 });
+
+		(target.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
+		flushSync();
+
+		expect(rowNumberTexts(table)).toEqual(['3']);
+	});
+
+	it('stays out of the column indexes', () => {
+		const { table, cell } = setup({ rowNumbers: true });
+
+		expect(table.querySelectorAll('tbody tr:first-child td[data-col]')).toHaveLength(2);
+		expect(cell(0, 0).previousElementSibling).toBe(rowNumber(table, 0));
+	});
+
+	it('sizes the column to the row count by default', () => {
+		const { table } = setup({ rowNumbers: true });
+		const col = table.querySelector('col.ssdg-row-number-col') as HTMLElement;
+
+		expect(col.getAttribute('style')).toContain('2ch');
+	});
+
+	it('applies the header, width and format options', () => {
+		const { table } = setup({
+			rowNumbers: {
+				header: '#',
+				width: '3rem',
+				format: (value, row) => `${value}. ${row.name[0]}`
+			}
+		});
+
+		expect(corner(table).textContent?.trim()).toBe('#');
+		expect(table.querySelector<HTMLElement>('col.ssdg-row-number-col')?.style.width).toBe('3rem');
+		expect(rowNumberTexts(table)).toEqual(['1. A', '2. B', '3. C']);
+	});
+
+	it('selects the whole row when a row number is clicked', () => {
+		const { table, cell } = setup({ rowNumbers: true });
+
+		pointerdown(rowNumber(table, 1));
+
+		expect(cell(1, 0).classList.contains('ssdg-focused')).toBe(true);
+		expect(cell(1, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(cell(0, 0).classList.contains('ssdg-selected')).toBe(false);
+		expect(rowNumber(table, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(rowNumber(table, 0).classList.contains('ssdg-selected')).toBe(false);
+	});
+
+	it('highlights a row number only when the whole row is selected', () => {
+		const { table, cell } = setup({ rowNumbers: true });
+
+		pointerdown(cell(1, 0));
+		expect(rowNumber(table, 1).classList.contains('ssdg-selected')).toBe(false);
+
+		keydown(table, 'ArrowRight', { shiftKey: true });
+		expect(rowNumber(table, 1).classList.contains('ssdg-selected')).toBe(true);
+	});
+
+	it('selects several rows by dragging', () => {
+		const { table, cell } = setup({ rowNumbers: true });
+
+		pointerdown(rowNumber(table, 0));
+		rowNumber(table, 1).dispatchEvent(new MouseEvent('pointerenter'));
+		flushSync();
+
+		expect(cell(1, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(cell(2, 0).classList.contains('ssdg-selected')).toBe(false);
+
+		cell(2, 1).dispatchEvent(new MouseEvent('pointerenter'));
+		flushSync();
+
+		expect(cell(2, 0).classList.contains('ssdg-focused')).toBe(true);
+		expect(cell(2, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(cell(0, 1).classList.contains('ssdg-selected')).toBe(true);
+	});
+
+	it('extends the row selection with shift click and shift arrows', () => {
+		const { table, cell } = setup({ rowNumbers: true });
+
+		pointerdown(rowNumber(table, 0));
+		window.dispatchEvent(new MouseEvent('pointerup'));
+		pointerdown(rowNumber(table, 1), { shiftKey: true });
+
+		expect(cell(0, 0).classList.contains('ssdg-selected')).toBe(true);
+		expect(cell(1, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(cell(2, 1).classList.contains('ssdg-selected')).toBe(false);
+
+		keydown(table, 'ArrowDown', { shiftKey: true });
+
+		expect(cell(2, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(cell(2, 0).classList.contains('ssdg-focused')).toBe(true);
+	});
+
+	it('copies the selected row without the row number', () => {
+		const { table } = setup({ rowNumbers: true });
+
+		pointerdown(rowNumber(table, 1));
+		const { event, read } = clipboardEvent('copy');
+		table.dispatchEvent(event);
+
+		expect(read()).toBe('Bob\t35');
+	});
+
+	it('keeps the corner header inert', () => {
+		const { table } = setup({ rowNumbers: true });
+
+		pointerdown(corner(table));
+
+		expect(table.querySelector('.ssdg-focused')).toBeNull();
+		expect(table.querySelector('.ssdg-selected')).toBeNull();
+	});
+
+	it('can opt out of the selection integration', () => {
+		const { table, cell } = setup({ rowNumbers: { selectable: false } });
+
+		pointerdown(rowNumber(table, 1));
+		openMenu(rowNumber(table, 1));
+
+		expect(table.querySelector('.ssdg-selected')).toBeNull();
+		expect(document.querySelector('[role="menu"]')).toBeNull();
+
+		pointerdown(cell(0, 1));
+		rowNumber(table, 2).dispatchEvent(new MouseEvent('pointerenter'));
+		flushSync();
+
+		expect(cell(0, 1).classList.contains('ssdg-focused')).toBe(true);
+		expect(cell(2, 0).classList.contains('ssdg-selected')).toBe(false);
+	});
+
+	it('opens the context menu for the clicked row', () => {
+		const contextMenuItems = vi.fn(
+			({ defaultItems }: { defaultItems: ContextMenuItem[] }) => defaultItems
+		);
+		const { table, cell } = setup({ rowNumbers: true, contextMenuItems });
+
+		openMenu(rowNumber(table, 2));
+
+		expect(cell(2, 1).classList.contains('ssdg-selected')).toBe(true);
+		expect(contextMenuItems).toHaveBeenCalledWith(
+			expect.objectContaining({
+				row: baseRows[2],
+				rowIndex: 2,
+				column: null,
+				selectedRows: [baseRows[2]]
+			})
+		);
+		expect(document.querySelector('[role="menu"]')).not.toBeNull();
+	});
+
+	it('keeps a multi-row selection when the menu opens inside it', () => {
+		const contextMenuItems = vi.fn(
+			({ defaultItems }: { defaultItems: ContextMenuItem[] }) => defaultItems
+		);
+		const { table } = setup({ rowNumbers: true, contextMenuItems });
+
+		pointerdown(rowNumber(table, 0));
+		window.dispatchEvent(new MouseEvent('pointerup'));
+		pointerdown(rowNumber(table, 1), { shiftKey: true });
+		openMenu(rowNumber(table, 1));
+
+		expect(contextMenuItems).toHaveBeenCalledWith(
+			expect.objectContaining({ selectedRows: [baseRows[0], baseRows[1]] })
+		);
+	});
+
+	it('spans the empty message over the row number column', () => {
+		const { table } = setup({ rows: [], rowNumbers: true });
+		expect(table.querySelector('td.ssdg-empty')?.getAttribute('colspan')).toBe('4');
+	});
+});
+
 describe('bottom bar', () => {
 	it('is hidden by default without pagination', () => {
 		const { target } = setup();
@@ -771,6 +986,68 @@ describe('export', () => {
 
 		click.mockRestore();
 		vi.restoreAllMocks();
+	});
+
+	it('includes row numbers in the export only when asked', async () => {
+		const blobs: Blob[] = [];
+		const click = vi
+			.spyOn(HTMLAnchorElement.prototype, 'click')
+			.mockImplementation(() => undefined);
+		URL.createObjectURL = vi.fn((blob: Blob) => {
+			blobs.push(blob);
+			return 'blob:test';
+		});
+		URL.revokeObjectURL = vi.fn();
+
+		const exportCsv = (table: HTMLTableElement) => {
+			(table.querySelector('td[data-row="0"]') as HTMLElement).dispatchEvent(
+				new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 })
+			);
+			flushSync();
+			[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+				.find((item) => item.textContent?.trim() === 'Export CSV')
+				?.click();
+			flushSync();
+		};
+
+		exportCsv(setup({ exportable: true, rowNumbers: true }).table);
+		expect(await blobs[0].text()).toBe('Name,Age\r\nAlice,30\r\nBob,35\r\nCarol,25');
+
+		if (component) unmount(component);
+		component = null;
+
+		const { table } = setup({
+			exportable: true,
+			sort: { columnId: 'name', direction: 'desc' },
+			rowNumbers: { header: 'No', includeInExport: true }
+		});
+		exportCsv(table);
+		expect(await blobs[1].text()).toBe('No,Name,Age\r\n1,Carol,25\r\n2,Bob,35\r\n3,Alice,30');
+
+		click.mockRestore();
+		vi.restoreAllMocks();
+	});
+
+	it('passes the row number options to the XLSX exporter', () => {
+		const xlsxExporter = vi.fn();
+		const rowNumbers = { header: 'No', includeInExport: true };
+		const { cell } = setup({ exportable: true, xlsxExporter, rowNumbers });
+
+		cell(0, 0).dispatchEvent(
+			new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 })
+		);
+		flushSync();
+
+		[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+			.find((entry) => entry.textContent?.trim() === 'Export XLSX')
+			?.click();
+		flushSync();
+
+		expect(xlsxExporter).toHaveBeenCalledWith(baseRows, columns, {
+			filename: 'export.xlsx',
+			sheetName: 'export',
+			rowNumbers
+		});
 	});
 });
 
