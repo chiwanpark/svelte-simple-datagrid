@@ -102,6 +102,30 @@ The grid never mutates `rows`. Every edit, paste, cut or clear is reported throu
 | `theme`            | `'default' \| 'spreadsheet'`                    | `'default'`         | Built-in theme.                                                   |
 | `class`            | `string`                                        | `''`                | Extra class on the wrapper.                                       |
 
+## Methods
+
+Bind the component with `bind:this` to drive pagination from outside the grid:
+
+```svelte
+<script lang="ts">
+	let grid = $state<DataGrid<Person>>();
+</script>
+
+<button onclick={() => grid?.setPage(1)}>First page</button>
+<button onclick={() => grid?.setPageSize(50)}>50 rows per page</button>
+
+<DataGrid bind:this={grid} {rows} {columns} paginated />
+```
+
+| Method                          | Description                                                                               |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `setPage(page: number)`         | Moves to `page`, clamped to the valid range. Non-finite values go to page 1.              |
+| `setPageSize(pageSize: number)` | Sets the rows per page and returns to page 1. Anything but a positive integer is ignored. |
+
+Both behave exactly like the built-in pager and page size selector: they clear the focus and selection, update the bindable `page` and `pageSize`, and fire `onpagechange` and `onpagesizechange`. Assigning `page` or `pageSize` through `bind:` also moves the grid, but skips all of that, and an out-of-range `page` is only clamped for display.
+
+To jump to the last page, pass `pageCount(totalRows, pageSize)`, which is exported along with the other pagination helpers.
+
 ## Columns
 
 ```ts
@@ -251,7 +275,7 @@ The bottom bar follows `paginated` by default, so it appears with pagination and
 <DataGrid {rows} {columns} bottomBar />
 ```
 
-Hiding it does not disable pagination: rows are still paged, PageUp / PageDown still switch pages, and you can drive `page` yourself with `bind:page` or `onpagechange`.
+Hiding it does not disable pagination: rows are still paged, PageUp / PageDown still switch pages, and you can drive the grid yourself with `bind:page`, `onpagechange` or the [methods](#methods).
 
 ```svelte
 <DataGrid {rows} {columns} paginated bottomBar={false} bind:page />

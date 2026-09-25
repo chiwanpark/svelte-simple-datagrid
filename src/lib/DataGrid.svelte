@@ -272,13 +272,15 @@
 		onsortchange?.(sort);
 	}
 
-	function setPage(next: number) {
+	export function setPage(next: number) {
 		page = clampPage(next, totalRows, pageSize);
 		resetFocus();
 		onpagechange?.(page);
 	}
 
-	function setPageSize(next: number) {
+	export function setPageSize(next: number) {
+		if (!Number.isInteger(next) || next < 1) return;
+
 		pageSize = next;
 		page = 1;
 		resetFocus();
