@@ -578,12 +578,12 @@
 		const defaultItems = defaultMenuItems();
 		const items = contextMenuItems
 			? contextMenuItems({
-					row: entry?.row ?? null,
-					rowIndex: entry?.index ?? -1,
-					column: column ?? null,
-					selectedRows: selectedRows(),
-					defaultItems
-				})
+				row: entry?.row ?? null,
+				rowIndex: entry?.index ?? -1,
+				column: column ?? null,
+				selectedRows: selectedRows(),
+				defaultItems
+			})
 			: defaultItems;
 
 		if (items.length === 0) return;
@@ -758,10 +758,10 @@
 							class:ssdg-resizing={resizing?.columnId === column.id}
 							style:text-align={column.align ?? 'left'}
 							aria-sort={sort?.columnId === column.id
-								? sort.direction === 'asc'
-									? 'ascending'
-									: 'descending'
-								: 'none'}
+							? sort.direction === 'asc'
+								? 'ascending'
+								: 'descending'
+							: 'none'}
 						>
 							{#if column.headerCell}
 								{@render column.headerCell({ column, sort: sort ?? null })}
@@ -804,8 +804,7 @@
 							{@const value = column.value(entry.row)}
 							{@const isFocused = focus?.row === rowIndex && focus?.column === columnIndex}
 							{@const isSelected = rectContains(selection, rowIndex, columnIndex)}
-							{@const isEditing =
-								editing?.position.row === rowIndex && editing?.position.column === columnIndex}
+							{@const isEditing = editing?.position.row === rowIndex && editing?.position.column === columnIndex}
 							<td
 								role="gridcell"
 								tabindex="-1"
@@ -815,10 +814,8 @@
 								class:ssdg-focused={isFocused}
 								class:ssdg-editing={isEditing}
 								style:text-align={column.align ?? 'left'}
-								onpointerdown={(event) =>
-									handleCellPointerDown(event, { row: rowIndex, column: columnIndex })}
-								onpointerenter={() =>
-									handleCellPointerEnter({ row: rowIndex, column: columnIndex })}
+								onpointerdown={(event) => handleCellPointerDown(event, { row: rowIndex, column: columnIndex })}
+								onpointerenter={() => handleCellPointerEnter({ row: rowIndex, column: columnIndex })}
 								ondblclick={() => startEdit({ row: rowIndex, column: columnIndex })}
 							>
 								{#if isEditing}
@@ -942,8 +939,15 @@
 		--ssdg-cell-padding: 12px;
 		--ssdg-font-size: 12px;
 		--ssdg-font-family:
-			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell,
-			'Helvetica Neue', sans-serif;
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
+			Oxygen-Sans,
+			Ubuntu,
+			Cantarell,
+			'Helvetica Neue',
+			sans-serif;
 		--ssdg-radius: 2px;
 		--ssdg-focus-width: 1px;
 	}

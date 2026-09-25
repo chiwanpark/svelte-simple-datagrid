@@ -63,7 +63,8 @@ export function expandMatrix(matrix: string[][], rows: number, columns: number):
 	if (matrix.length !== 1 || matrix[0].length !== 1) return matrix;
 
 	const value = matrix[0][0];
-	return Array.from({ length: Math.max(rows, 1) }, () =>
-		Array.from({ length: Math.max(columns, 1) }, () => value)
+	return Array.from(
+		{ length: Math.max(rows, 1) },
+		() => Array.from({ length: Math.max(columns, 1) }, () => value)
 	);
 }
