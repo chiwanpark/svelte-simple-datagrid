@@ -31,13 +31,16 @@
 		Column,
 		ContextMenuItem,
 		DataGridProps,
-		EditorMove
+		EditorMove,
+		RowNumbersOptions,
+		SelectionRect
 	} from './core/types.js';
 
 	let {
 		rows,
 		columns,
 		rowKey = (_row: TRow, index: number) => index,
+		rowNumbers = false,
 		sort = $bindable(null),
 		onsortchange,
 		editable = false,
@@ -74,7 +77,7 @@
 	let menu = $state.raw<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
 	let table = $state<HTMLTableElement | null>(null);
 	let resizing = $state.raw<{ columnId: string; startX: number; startWidth: number } | null>(null);
-	let dragging = false;
+	let dragging: 'cells' | 'rows' | null = null;
 
 	let entries = $derived(rows.map((row, index) => ({ row, index })));
 	let sortedEntries = $derived(sortEntries(entries, columns, sort));
@@ -88,6 +91,15 @@
 
 	let selection = $derived(toRect(anchor, focus));
 	let showBottomBar = $derived(bottomBar ?? paginated);
+
+	let rowNumberOptions = $derived<RowNumbersOptions<TRow> | null>(
+		rowNumbers === true ? {} : rowNumbers || null
+	);
+	let rowNumbersSelectable = $derived(rowNumberOptions?.selectable ?? true);
+	let rowNumberWidth = $derived(
+		rowNumberOptions?.width ??
+			`calc(${Math.max(String(totalRows).length, 2)}ch + 2 * var(--ssdg-cell-padding) + 1px)`
+	);
 
 	let focusedCell = $derived.by(() => {
 		if (!focus) return null;
@@ -279,6 +291,30 @@
 		anchor = { row: 0, column: 0 };
 		focus = { row: viewEntries.length - 1, column: columns.length - 1 };
 		void focusCellElement(focus);
+	}
+
+	function selectRow(row: number, extend = false) {
+		const lastColumn = columns.length - 1;
+		if (lastColumn < 0 || !entryAt(row)) return;
+
+		anchor = { row: extend && anchor ? anchor.row : row, column: lastColumn };
+		focus = { row, column: 0 };
+		void focusCellElement(focus);
+	}
+
+	function rectCoversRow(rect: SelectionRect | null, row: number): boolean {
+		return (
+			!!rect &&
+			row >= rect.top &&
+			row <= rect.bottom &&
+			rect.left === 0 &&
+			rect.right === columns.length - 1
+		);
+	}
+
+	function rowNumberText(options: RowNumbersOptions<TRow>, rowIndex: number, row: TRow): string {
+		const rowNumber = visibleRange.start + rowIndex;
+		return options.format ? options.format(rowNumber, row) : String(rowNumber);
 	}
 
 	function startEdit(position: CellPosition, initialText?: string) {
@@ -530,9 +566,10 @@
 
 	function exportRows(format: 'csv' | 'xlsx') {
 		const data = sortedEntries.map((entry) => entry.row);
+		const extra = rowNumberOptions?.includeInExport ? { rowNumbers: rowNumberOptions } : {};
 
 		if (format === 'csv') {
-			downloadCsv(data, columns, { filename: `${exportFilename}.csv` });
+			downloadCsv(data, columns, { filename: `${exportFilename}.csv`, ...extra });
 			return;
 		}
 
@@ -541,7 +578,8 @@
 		Promise.resolve(
 			xlsxExporter(data, columns, {
 				filename: `${exportFilename}.xlsx`,
-				sheetName: exportSheetName ?? exportFilename
+				sheetName: exportSheetName ?? exportFilename,
+				...extra
 			})
 		).catch((error: unknown) => {
 			if (onexporterror) onexporterror(error);
@@ -564,17 +602,26 @@
 		if (!contextMenu) return;
 
 		const cell = (event.target as HTMLElement | null)?.closest<HTMLTableCellElement>(
-			'td[data-row]'
+			'td[data-row], th[data-row]'
 		);
 		if (!cell) return;
 
+		const row = Number(cell.dataset.row);
+		const isRowNumber = cell.dataset.col === undefined;
+		if (isRowNumber && !rowNumbersSelectable) return;
+
 		event.preventDefault();
 
-		const position = { row: Number(cell.dataset.row), column: Number(cell.dataset.col) };
-		if (!rectContains(selection, position.row, position.column)) setFocus(position);
+		let column: Column<TRow> | undefined;
+		if (isRowNumber) {
+			if (!rectCoversRow(selection, row)) selectRow(row);
+		} else {
+			const position = { row, column: Number(cell.dataset.col) };
+			if (!rectContains(selection, position.row, position.column)) setFocus(position);
+			column = columnAt(position.column);
+		}
 
-		const entry = entryAt(position.row);
-		const column = columnAt(position.column);
+		const entry = entryAt(row);
 		const defaultItems = defaultMenuItems();
 		const items = contextMenuItems
 			? contextMenuItems({
@@ -599,13 +646,25 @@
 		if (event.button === 2) return;
 		if (editing) return;
 
-		dragging = true;
+		dragging = 'cells';
 		setFocus(position, event.shiftKey);
 	}
 
 	function handleCellPointerEnter(position: CellPosition) {
 		if (!dragging || editing) return;
-		focus = position;
+		focus = dragging === 'rows' ? { row: position.row, column: 0 } : position;
+	}
+
+	function handleRowNumberPointerDown(event: PointerEvent, row: number) {
+		if (event.button === 2 || editing || !rowNumbersSelectable) return;
+
+		dragging = 'rows';
+		selectRow(row, event.shiftKey);
+	}
+
+	function handleRowNumberPointerEnter(row: number) {
+		if (!dragging || editing || !rowNumbersSelectable) return;
+		focus = { row, column: 0 };
 	}
 
 	function handleTableFocus() {
@@ -722,14 +781,18 @@
 <svelte:window
 	onpointermove={handleResizeMove}
 	onpointerup={() => {
-		dragging = false;
+		dragging = null;
 		endResize();
 	}}
 	onpointercancel={endResize}
 />
 
 <div class="ssdg ssdg-theme-{theme} {className}" class:ssdg-is-resizing={!!resizing}>
-	<div class="ssdg-viewport" style:height>
+	<div
+		class="ssdg-viewport"
+		style:height
+		style:scroll-padding-left={rowNumberOptions ? rowNumberWidth : undefined}
+	>
 		<table
 			bind:this={table}
 			class="ssdg-table"
@@ -743,6 +806,9 @@
 			onfocus={handleTableFocus}
 		>
 			<colgroup>
+				{#if rowNumberOptions}
+					<col class="ssdg-row-number-col" style:width={rowNumberWidth} />
+				{/if}
 				{#each columns as column, columnIndex (column.id)}
 					<col data-col={columnIndex} style:width={columnWidthOf(column)} />
 				{/each}
@@ -751,6 +817,9 @@
 
 			<thead>
 				<tr>
+					{#if rowNumberOptions}
+						<th scope="col" class="ssdg-row-number">{rowNumberOptions.header ?? ''}</th>
+					{/if}
 					{#each columns as column, columnIndex (column.id)}
 						<th
 							scope="col"
@@ -800,6 +869,18 @@
 			<tbody>
 				{#each viewEntries as entry, rowIndex (rowKey(entry.row, entry.index))}
 					<tr>
+						{#if rowNumberOptions}
+							<th
+								scope="row"
+								class="ssdg-row-number"
+								class:ssdg-selected={rectCoversRow(selection, rowIndex)}
+								data-row={rowIndex}
+								onpointerdown={(event) => handleRowNumberPointerDown(event, rowIndex)}
+								onpointerenter={() => handleRowNumberPointerEnter(rowIndex)}
+							>
+								{rowNumberText(rowNumberOptions, rowIndex, entry.row)}
+							</th>
+						{/if}
 						{#each columns as column, columnIndex (column.id)}
 							{@const value = column.value(entry.row)}
 							{@const isFocused = focus?.row === rowIndex && focus?.column === columnIndex}
@@ -863,7 +944,9 @@
 					</tr>
 				{:else}
 					<tr>
-						<td class="ssdg-empty" colspan={columns.length + 1}>{emptyMessage}</td>
+						<td class="ssdg-empty" colspan={columns.length + (rowNumberOptions ? 2 : 1)}>
+							{emptyMessage}
+						</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -986,10 +1069,10 @@
 		border-right: none;
 	}
 
-	.ssdg-table th {
+	.ssdg-table thead th {
 		position: sticky;
 		top: 0;
-		z-index: 1;
+		z-index: 2;
 		height: var(--ssdg-header-height);
 		user-select: none;
 		border-right-color: var(--ssdg-header-border-color);
@@ -997,6 +1080,30 @@
 		background: var(--ssdg-header-bg);
 		color: var(--ssdg-header-color);
 		font-weight: 600;
+	}
+
+	.ssdg-table th.ssdg-row-number {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+		border-right-color: var(--ssdg-border-color);
+		background: var(--ssdg-header-bg);
+		color: var(--ssdg-muted-color);
+		font-weight: 400;
+		font-variant-numeric: tabular-nums;
+		text-align: center;
+		user-select: none;
+	}
+
+	.ssdg-table thead th.ssdg-row-number {
+		z-index: 3;
+		color: var(--ssdg-header-color);
+		font-weight: 600;
+	}
+
+	.ssdg-table tbody th.ssdg-row-number.ssdg-selected {
+		background-image: linear-gradient(var(--ssdg-selection-bg), var(--ssdg-selection-bg));
+		color: var(--ssdg-accent-color);
 	}
 
 	.ssdg-table td {

@@ -150,8 +150,8 @@
 	<p class="hint">
 		Category and stock cells use the select editor. Click a cell to focus, drag or shift+arrows to
 		select, Enter/F2 or double click to edit, Ctrl/Cmd+C / Ctrl/Cmd+V to copy &amp; paste, Delete to
-		clear, right click for the context menu. Drag a header edge to resize a column, or double click
-		it to fit the content.
+		clear, right click for the context menu. Click or drag row numbers to select whole rows. Drag a
+		header edge to resize a column, or double click it to fit the content.
 	</p>
 
 	<div class="toolbar">
@@ -173,6 +173,7 @@
 		{theme}
 		bind:sort
 		rowKey={(row) => row.id}
+		rowNumbers={{ includeInExport: true }}
 		editable
 		exportable
 		exportFilename="products"

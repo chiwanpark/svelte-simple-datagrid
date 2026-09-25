@@ -88,6 +88,14 @@ export interface ColumnResizeEvent {
 	width: number;
 }
 
+export interface RowNumbersOptions<TRow> {
+	header?: string;
+	width?: string;
+	format?: (rowNumber: number, row: TRow) => string;
+	selectable?: boolean;
+	includeInExport?: boolean;
+}
+
 export interface CellChange<TRow> {
 	rowIndex: number;
 	row: TRow;
@@ -135,6 +143,7 @@ export interface DataGridProps<TRow> {
 	rows: TRow[];
 	columns: Column<TRow>[];
 	rowKey?: (row: TRow, index: number) => string | number;
+	rowNumbers?: boolean | RowNumbersOptions<TRow>;
 
 	sort?: SortState | null;
 	onsortchange?: (sort: SortState | null) => void;

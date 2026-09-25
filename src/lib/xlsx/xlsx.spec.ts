@@ -76,6 +76,16 @@ describe('buildXlsxSheet', () => {
 		expect(headerless.data).toHaveLength(2);
 		expect(headerless.options.stickyRowsCount).toBeUndefined();
 	});
+
+	it('writes row numbers as numeric cells when asked', () => {
+		const numbered = buildXlsxSheet(rows, [columns[0]], { rowNumbers: { header: 'No' } });
+
+		expect(numbered.data.map((line) => line[0])).toEqual([
+			{ value: 'No', type: String, fontWeight: 'bold' },
+			{ value: 1, type: Number },
+			{ value: 2, type: Number }
+		]);
+	});
 });
 
 describe('xlsxBlob', () => {

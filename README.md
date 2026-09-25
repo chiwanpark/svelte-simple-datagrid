@@ -8,6 +8,7 @@ A simple, lightweight datagrid component for Svelte 5, written in TypeScript.
 - Custom rendering through snippets and `format` hooks
 - Client-side sorting and pagination
 - Drag to resize columns, with keyboard resizing and double-click auto-fit
+- Optional auto-generated row number column with whole-row selection, like AG Grid's Row Numbers
 - Bottom bar with row counts, page size selector and pager
 - Context menu with default clipboard actions and custom items
 - CSV download built in, XLSX download through the optional `write-excel-file` peer dependency
@@ -71,6 +72,7 @@ The grid never mutates `rows`. Every edit, paste, cut or clear is reported throu
 | `rows`             | `TRow[]`                                        | required            | Data rows.                                                        |
 | `columns`          | `Column<TRow>[]`                                | required            | Column definitions.                                               |
 | `rowKey`           | `(row, index) => string \| number`              | row index           | Stable key per row.                                               |
+| `rowNumbers`       | `boolean \| RowNumbersOptions<TRow>`            | `false`             | Shows a row number column. See [Row numbers](#row-numbers).       |
 | `sort`             | `SortState \| null` (bindable)                  | `null`              | Active sort.                                                      |
 | `onsortchange`     | `(sort) => void`                                | –                   | Called when the sort changes.                                     |
 | `editable`         | `boolean`                                       | `false`             | Enables editing, paste, cut and clear.                            |
@@ -194,6 +196,35 @@ Widths live in `columnWidths`, keyed by column id, so they can be persisted or r
 
 The table uses a fixed layout with a trailing spacer column, so resized widths are exact: leftover space stays empty instead of being spread across the columns, and the grid scrolls horizontally once the columns are wider than the viewport. Columns without a `width` share the available space equally.
 
+## Row numbers
+
+Set `rowNumbers` to add an auto-generated row number column at the start of the grid, similar to AG Grid's Row Numbers feature:
+
+```svelte
+<DataGrid {rows} {columns} rowNumbers />
+<DataGrid {rows} {columns} rowNumbers={{ header: '#', width: '4rem', includeInExport: true }} />
+```
+
+```ts
+interface RowNumbersOptions<TRow> {
+	header?: string;
+	width?: string;
+	format?: (rowNumber: number, row: TRow) => string;
+	selectable?: boolean;
+	includeInExport?: boolean;
+}
+```
+
+- Numbers are 1-based positions in the current sort order and keep counting across pages, so they are not tied to the data. Use a regular column for a data-provided ID.
+- The column stays pinned to the left while scrolling horizontally. It is not part of `columns`, so column indexes, `FocusedCell` and `CellChange` are unaffected.
+- Click a row number to select the whole row, and drag over row numbers or Shift + click to select several rows. The result is a regular range, so copy, cut, paste, clear and Shift + Arrows work as usual. Row numbers themselves are never copied, edited or focused.
+- A row number is highlighted while its whole row is selected.
+- Right clicking a row number selects that row (unless it is already selected) and opens the context menu with `column: null`.
+- Set `selectable: false` to turn the selection off, like AG Grid's `suppressCellSelectionIntegration`. The row numbers then behave like the header row.
+- The top-left header cell has no selection behaviour, as in AG Grid.
+- `header` defaults to an empty string. `width` defaults to fit the digits of the row count; set it when `format` produces longer text.
+- Row numbers are left out of CSV and XLSX exports unless `includeInExport` is set.
+
 ## Keyboard
 
 | Keys                         | Action                                      |
@@ -301,7 +332,7 @@ With `exportable`, the menu exports every row in the current sort order, not jus
 | `downloadBlob(blob, filename)`              | Downloads any blob                                    |
 | `buildExportTable(rows, columns, options?)` | `{ header, body }` with raw values and cell text      |
 
-Shared options: `header` (default `true`), `columns` (subset or custom order), `filename`. CSV adds `delimiter`, `newline` and `bom` (a UTF-8 BOM is written by default so Excel opens accented text correctly). XLSX adds `sheetName`, `dateFormat` (default `yyyy-mm-dd`) and `writer` to inject an already imported `write-excel-file`.
+Shared options: `header` (default `true`), `columns` (subset or custom order), `filename`, and `rowNumbers` (`true` or `{ header, format }`) to prepend a 1-based row number column. CSV adds `delimiter`, `newline` and `bom` (a UTF-8 BOM is written by default so Excel opens accented text correctly). XLSX adds `sheetName`, `dateFormat` (default `yyyy-mm-dd`) and `writer` to inject an already imported `write-excel-file`.
 
 Cell values follow the column definition: `format` decides the exported text, so a formatted price stays formatted. In XLSX, numbers, booleans and dates become real typed cells (dates as Excel serial numbers with a date format), everything else is written as text, the header row is bold and frozen, and column widths are derived from the content.
 

@@ -1,15 +1,18 @@
 import { formatCell } from './edit.js';
-import type { Column } from './types.js';
+import type { Column, RowNumbersOptions } from './types.js';
 
 export interface ExportCell {
 	value: unknown;
 	text: string;
 }
 
+export type ExportRowNumbers<TRow> = Pick<RowNumbersOptions<TRow>, 'header' | 'format'>;
+
 export interface ExportOptions<TRow> {
 	header?: boolean;
 	columns?: Column<TRow>[];
 	filename?: string;
+	rowNumbers?: boolean | ExportRowNumbers<TRow>;
 }
 
 export interface ExportTable {
@@ -44,14 +47,30 @@ export function buildExportTable<TRow>(
 	options: ExportOptions<TRow> = {}
 ): ExportTable {
 	const selected = options.columns ?? columns;
+	const rowNumbers: ExportRowNumbers<TRow> | null = options.rowNumbers === true
+		? {}
+		: options.rowNumbers || null;
+
+	const header = selected.map((column) => column.header);
+	if (rowNumbers) header.unshift(rowNumbers.header ?? '');
 
 	return {
-		header: options.header === false ? [] : selected.map((column) => column.header),
-		body: rows.map((row) =>
-			selected.map((column) => {
+		header: options.header === false ? [] : header,
+		body: rows.map((row, index) => {
+			const cells = selected.map((column) => {
 				const value = column.value(row);
 				return { value, text: formatCell(column, row, value) };
-			})
-		)
+			});
+
+			if (rowNumbers) {
+				const rowNumber = index + 1;
+				cells.unshift({
+					value: rowNumber,
+					text: rowNumbers.format ? rowNumbers.format(rowNumber, row) : String(rowNumber)
+				});
+			}
+
+			return cells;
+		})
 	};
 }
