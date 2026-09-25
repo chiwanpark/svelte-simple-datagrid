@@ -1,8 +1,10 @@
 <script lang="ts">
 	import {
 		applyCellChanges,
+		clampPage,
 		DataGrid,
 		downloadCsv,
+		pageCount,
 		sortRows,
 		type CellChange,
 		type Column,
@@ -39,6 +41,16 @@
 	let log = $state<string[]>([]);
 	let theme = $state<GridTheme>('spreadsheet');
 	let sort = $state<SortState | null>(null);
+
+	let grid = $state<DataGrid<Product>>();
+	let page = $state(1);
+	let pageSize = $state(10);
+	let targetPage = $state(1);
+	let pageLog = $state<string[]>([]);
+	let lastPage = $derived(pageCount(rows.length, pageSize));
+	let currentPage = $derived(clampPage(page, rows.length, pageSize));
+
+	const pageSizes = [5, 10, 25];
 
 	const columns: Column<Product>[] = [
 		{
@@ -109,6 +121,15 @@
 		}
 	}
 
+	function logPage(entry: string) {
+		pageLog = [entry, ...pageLog].slice(0, 6);
+	}
+
+	function goToPage(event: SubmitEvent) {
+		event.preventDefault();
+		grid?.setPage(targetPage);
+	}
+
 	function menuItems({
 		row,
 		defaultItems
@@ -151,7 +172,8 @@
 		Category and stock cells use the select editor. Click a cell to focus, drag or shift+arrows to
 		select, Enter/F2 or double click to edit, Ctrl/Cmd+C / Ctrl/Cmd+V to copy &amp; paste, Delete to
 		clear, right click for the context menu. Click or drag row numbers to select whole rows. Drag a
-		header edge to resize a column, or double click it to fit the content.
+		header edge to resize a column, or double click it to fit the content. The pagination toolbar
+		drives the grid through its exported <code>setPage</code> and <code>setPageSize</code> methods.
 	</p>
 
 	<div class="toolbar">
@@ -167,7 +189,57 @@
 		<button type="button" onclick={() => download('xlsx')}>Download XLSX</button>
 	</div>
 
+	<div class="toolbar">
+		<span>Pagination API</span>
+		<button type="button" onclick={() => grid?.setPage(1)} disabled={currentPage <= 1}>
+			First
+		</button>
+		<button
+			type="button"
+			onclick={() => grid?.setPage(currentPage - 1)}
+			disabled={currentPage <= 1}
+		>
+			Previous
+		</button>
+		<button
+			type="button"
+			onclick={() => grid?.setPage(currentPage + 1)}
+			disabled={currentPage >= lastPage}
+		>
+			Next
+		</button>
+		<button
+			type="button"
+			onclick={() => grid?.setPage(lastPage)}
+			disabled={currentPage >= lastPage}
+		>
+			Last
+		</button>
+
+		<form onsubmit={goToPage}>
+			<label>
+				Page
+				<input type="number" min="1" max={lastPage} bind:value={targetPage} />
+			</label>
+			<button type="submit">Go</button>
+		</form>
+
+		{#each pageSizes as size (size)}
+			<button
+				type="button"
+				class:active={pageSize === size}
+				aria-pressed={pageSize === size}
+				onclick={() => grid?.setPageSize(size)}
+			>
+				{size} rows
+			</button>
+		{/each}
+
+		<span class="page-status">Page {currentPage} of {lastPage}</span>
+	</div>
+
 	<DataGrid
+		bind:this={grid}
 		{rows}
 		{columns}
 		{theme}
@@ -179,10 +251,13 @@
 		exportFilename="products"
 		xlsxExporter={downloadXlsx}
 		paginated
-		pageSize={10}
+		bind:page
+		bind:pageSize
 		height="24rem"
 		onchange={handleChange}
 		onfocuschange={(cell) => (focused = cell)}
+		onpagechange={(next) => logPage(`onpagechange(${next})`)}
+		onpagesizechange={(next) => logPage(`onpagesizechange(${next})`)}
 		contextMenuItems={menuItems}
 	/>
 
@@ -198,6 +273,18 @@
 			{:else}
 				<ul>
 					{#each log as entry, index (`${entry}-${index}`)}
+						<li>{entry}</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+		<div>
+			<h2>Pagination events</h2>
+			{#if pageLog.length === 0}
+				<p>none</p>
+			{:else}
+				<ul>
+					{#each pageLog as entry, index (`${entry}-${index}`)}
 						<li>{entry}</li>
 					{/each}
 				</ul>
@@ -222,17 +309,27 @@
 
 	.toolbar {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.75rem;
+		gap: 0.5rem 0.75rem;
 		margin-bottom: 0.5rem;
 		color: #475569;
 		font-size: 0.875rem;
 	}
 
-	.toolbar label {
+	.toolbar label,
+	.toolbar form {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
+	}
+
+	.toolbar input[type='number'] {
+		width: 3.5rem;
+		padding: 0.2rem 0.375rem;
+		border: 1px solid #cbd5e1;
+		border-radius: 0.25rem;
+		font: inherit;
 	}
 
 	.toolbar button {
@@ -243,6 +340,22 @@
 		color: inherit;
 		font: inherit;
 		cursor: pointer;
+	}
+
+	.toolbar button:disabled {
+		color: #94a3b8;
+		cursor: default;
+	}
+
+	.toolbar button.active {
+		border-color: #2563eb;
+		background: #eff6ff;
+		color: #1d4ed8;
+	}
+
+	.page-status {
+		margin-left: auto;
+		font-variant-numeric: tabular-nums;
 	}
 
 	.badge {

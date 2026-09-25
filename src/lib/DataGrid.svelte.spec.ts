@@ -35,9 +35,14 @@ const columns: Column<Person>[] = [
 	{ id: 'age', header: 'Age', value: (row) => row.age, align: 'right' }
 ];
 
-const Grid = DataGrid as unknown as Component<DataGridProps<Person>>;
+type GridExports = {
+	setPage: (page: number) => void;
+	setPageSize: (pageSize: number) => void;
+};
 
-let component: Record<string, unknown> | null = null;
+const Grid = DataGrid as unknown as Component<DataGridProps<Person>, GridExports>;
+
+let component: GridExports | null = null;
 
 afterEach(() => {
 	if (component) unmount(component);
@@ -49,17 +54,18 @@ function setup(props: Partial<DataGridProps<Person>> = {}) {
 	const target = document.createElement('div');
 	document.body.append(target);
 
-	component = mount(Grid, {
+	const grid = mount(Grid, {
 		target,
 		props: { rows: baseRows, columns, ...props } as DataGridProps<Person>
 	});
+	component = grid;
 	flushSync();
 
 	const table = target.querySelector('table') as HTMLTableElement;
 	const cell = (row: number, column: number) =>
 		table.querySelector(`td[data-row="${row}"][data-col="${column}"]`) as HTMLTableCellElement;
 
-	return { target, table, cell };
+	return { target, table, cell, grid };
 }
 
 function pointerdown(element: Element, init: MouseEventInit = {}) {
@@ -474,6 +480,62 @@ describe('pagination', () => {
 
 		expect(onpagesizechange).toHaveBeenCalledWith(10);
 		expect(table.querySelectorAll('tbody tr')).toHaveLength(3);
+	});
+
+	it('moves between pages through the exported setPage', () => {
+		const onpagechange = vi.fn();
+		const { table, cell, grid } = setup({
+			paginated: true,
+			pageSize: 2,
+			bottomBar: false,
+			onpagechange
+		});
+
+		pointerdown(cell(0, 0));
+		grid.setPage(2);
+		flushSync();
+
+		expect(onpagechange).toHaveBeenLastCalledWith(2);
+		expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
+		expect(table.textContent).toContain('Carol');
+		expect(table.querySelector('.ssdg-focused')).toBeNull();
+
+		grid.setPage(99);
+		flushSync();
+		expect(onpagechange).toHaveBeenLastCalledWith(2);
+
+		grid.setPage(0);
+		flushSync();
+		expect(onpagechange).toHaveBeenLastCalledWith(1);
+		expect(table.textContent).toContain('Alice');
+	});
+
+	it('changes the page size through the exported setPageSize', () => {
+		const onpagechange = vi.fn();
+		const onpagesizechange = vi.fn();
+		const { table, grid } = setup({
+			paginated: true,
+			pageSize: 2,
+			onpagechange,
+			onpagesizechange
+		});
+
+		grid.setPage(2);
+		grid.setPageSize(1);
+		flushSync();
+
+		expect(onpagesizechange).toHaveBeenCalledWith(1);
+		expect(onpagechange).toHaveBeenLastCalledWith(1);
+		expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
+		expect(table.textContent).toContain('Alice');
+
+		grid.setPageSize(0);
+		grid.setPageSize(1.5);
+		grid.setPageSize(Number.NaN);
+		flushSync();
+
+		expect(onpagesizechange).toHaveBeenCalledTimes(1);
+		expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
 	});
 });
 
