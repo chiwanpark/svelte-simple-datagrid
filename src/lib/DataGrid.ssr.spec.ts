@@ -43,6 +43,15 @@ describe('DataGrid rendering', () => {
 		expect(body).not.toContain('ssdg-theme-default');
 	});
 
+	it('applies the style prop to the wrapper', () => {
+		const plain = render(Grid, { props: { rows, columns } });
+		expect(plain.body).not.toMatch(/<div class="ssdg [^"]*"[^>]* style=/);
+
+		const style = '--ssdg-accent-color: #16a34a';
+		const { body } = render(Grid, { props: { rows, columns, style } });
+		expect(body).toMatch(/<div class="ssdg [^"]*"[^>]* style="--ssdg-accent-color: #16a34a"/);
+	});
+
 	it('renders the empty message', () => {
 		const { body } = render(Grid, { props: { rows: [], columns, emptyMessage: 'Nothing' } });
 		expect(body).toContain('Nothing');

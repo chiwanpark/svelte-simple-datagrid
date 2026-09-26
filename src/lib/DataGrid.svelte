@@ -71,7 +71,8 @@
 		emptyMessage = 'No data',
 		height,
 		theme = 'default',
-		class: className = ''
+		class: className = '',
+		style
 	}: DataGridProps<TRow> = $props();
 
 	let focus = $state.raw<CellPosition | null>(null);
@@ -879,7 +880,7 @@
 	onpointercancel={endResize}
 />
 
-<div class="ssdg ssdg-theme-{theme} {className}" class:ssdg-is-resizing={!!resizing}>
+<div class="ssdg ssdg-theme-{theme} {className}" class:ssdg-is-resizing={!!resizing} {style}>
 	<div
 		class="ssdg-viewport"
 		style:height
@@ -1057,7 +1058,7 @@
 </div>
 
 <style>
-	.ssdg {
+	:where(.ssdg) {
 		--ssdg-bg: #fff;
 		--ssdg-color: #0f172a;
 		--ssdg-editor-bg: var(--ssdg-bg);
@@ -1081,19 +1082,9 @@
 		--ssdg-font-family: inherit;
 		--ssdg-radius: 0.375rem;
 		--ssdg-focus-width: 2px;
-
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		border: 1px solid var(--ssdg-border-color);
-		border-radius: var(--ssdg-radius);
-		background: var(--ssdg-bg);
-		color: var(--ssdg-color);
-		font-family: var(--ssdg-font-family);
-		font-size: var(--ssdg-font-size);
 	}
 
-	.ssdg-theme-spreadsheet {
+	:where(.ssdg-theme-spreadsheet) {
 		--ssdg-border-color: #bdc3c7;
 		--ssdg-row-border-color: rgb(189 195 199 / 58%);
 		--ssdg-header-border-color: rgb(189 195 199 / 50%);
@@ -1125,6 +1116,18 @@
 			sans-serif;
 		--ssdg-radius: 2px;
 		--ssdg-focus-width: 1px;
+	}
+
+	.ssdg {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--ssdg-border-color);
+		border-radius: var(--ssdg-radius);
+		background: var(--ssdg-bg);
+		color: var(--ssdg-color);
+		font-family: var(--ssdg-font-family);
+		font-size: var(--ssdg-font-size);
 	}
 
 	.ssdg-is-resizing {

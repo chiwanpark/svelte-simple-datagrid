@@ -187,4 +187,5 @@ export interface DataGridProps<TRow> {
 	height?: string;
 	theme?: GridTheme;
 	class?: string;
+	style?: string;
 }
