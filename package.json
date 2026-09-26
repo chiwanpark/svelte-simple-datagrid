@@ -1,6 +1,6 @@
 {
 	"name": "@chiwanpark/svelte-simple-datagrid",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "A simple, lightweight datagrid component for Svelte 5.",
 	"license": "MIT",
 	"author": "Chiwan Park <chiwanpark@hotmail.com>",
