@@ -102,6 +102,7 @@ The grid never mutates `rows`. Every edit, paste, cut or clear is reported throu
 | `height`           | `string`                                        | –                   | Fixed viewport height, e.g. `"24rem"`.                            |
 | `theme`            | `'default' \| 'spreadsheet'`                    | `'default'`         | Built-in theme.                                                   |
 | `class`            | `string`                                        | `''`                | Extra class on the wrapper.                                       |
+| `style`            | `string`                                        | –                   | Inline style on the wrapper, e.g. to set CSS custom properties.   |
 
 ## Methods
 
@@ -472,12 +473,29 @@ A theme is just a `ssdg-theme-<name>` class on the wrapper that assigns CSS cust
 
 `--ssdg-cell-padding` is shared by cells and the built-in editors, so the text does not shift when a cell enters edit mode.
 
-```css
-:global(.ssdg-theme-spreadsheet) {
-	--ssdg-accent-color: #16a34a;
-	--ssdg-row-height: 24px;
-}
+### Overriding variables
+
+The built-in defaults and themes are declared inside `:where()`, so they have zero specificity: any selector that matches the grid overrides them, whatever the stylesheet order. Target the theme class, pass your own class through `class`, or set the variables inline with `style`:
+
+```svelte
+<DataGrid {rows} {columns} theme="spreadsheet" />
+<DataGrid {rows} {columns} class="compact" />
+<DataGrid {rows} {columns} style="--ssdg-accent-color: #dc2626" />
+
+<style>
+	:global(.ssdg-theme-spreadsheet) {
+		--ssdg-accent-color: #16a34a;
+		--ssdg-row-height: 24px;
+	}
+
+	:global(.ssdg.compact) {
+		--ssdg-row-height: 1.5rem;
+		--ssdg-cell-padding: 0.25rem;
+	}
+</style>
 ```
+
+The variables have to be set on the grid element itself. Values set on an ancestor are not inherited, because the grid declares every variable with its theme default; use a descendant selector such as `.sidebar :global(.ssdg)` instead.
 
 ## Development
 
