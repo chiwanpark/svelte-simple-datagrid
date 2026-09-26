@@ -12,20 +12,50 @@ interface Setup {
 	style?: string;
 }
 
-function computed(
-	property: string,
-	{ theme = 'default', userCss = '', userCssFirst, style }: Setup
-) {
+function render({ theme = 'default', userCss = '', userCssFirst, style }: Setup) {
 	const sheets = [`<style>${componentCss}</style>`, `<style>${userCss}</style>`];
 	if (userCssFirst) sheets.reverse();
 
 	document.head.innerHTML = sheets.join('');
 	document.body.innerHTML = `<main class="page">
-		<div id="grid" class="ssdg ssdg-theme-${theme} my-grid ${scope}" style="${style ?? ''}"></div>
+		<div id="grid" class="ssdg ssdg-theme-${theme} my-grid ${scope}" style="${style ?? ''}">
+			<table class="ssdg-table ${scope}">
+				<thead class="${scope}">
+					<tr class="${scope}">
+						<th id="row-number-header" class="ssdg-row-number ${scope}"></th>
+						<th id="header" class="${scope}"></th>
+					</tr>
+				</thead>
+				<tbody class="${scope}">
+					<tr class="${scope}">
+						<th id="row-number" class="ssdg-row-number ${scope}"></th>
+						<td class="${scope}"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 	</main>`;
+}
 
+function computed(property: string, setup: Setup) {
+	render(setup);
 	const grid = document.getElementById('grid')!;
 	return getComputedStyle(grid).getPropertyValue(property).trim();
+}
+
+function fontWeight(id: string) {
+	const style = getComputedStyle(document.getElementById(id)!);
+	const variable = style.fontWeight.match(/^var\((--[\w-]+)\)$/)?.[1];
+	return variable ? style.getPropertyValue(variable).trim() : style.fontWeight;
+}
+
+function fontWeights(setup: Setup) {
+	render(setup);
+	return {
+		header: fontWeight('header'),
+		rowNumberHeader: fontWeight('row-number-header'),
+		rowNumber: fontWeight('row-number')
+	};
 }
 
 afterEach(() => {
@@ -68,5 +98,30 @@ describe('DataGrid theme variables', () => {
 			style: '--ssdg-accent-color: #dc2626'
 		};
 		expect(computed('--ssdg-accent-color', setup)).toBe('#dc2626');
+	});
+
+	it('applies the default header and row number font weights', () => {
+		for (const theme of ['default', 'spreadsheet'] as const) {
+			expect(fontWeights({ theme })).toEqual({
+				header: '600',
+				rowNumberHeader: '600',
+				rowNumber: '400'
+			});
+		}
+	});
+
+	it('lets the header and row number font weights be overridden', () => {
+		const variables = '--ssdg-header-font-weight: 500; --ssdg-row-number-font-weight: 700';
+		const expected = { header: '500', rowNumberHeader: '500', rowNumber: '700' };
+
+		expect(fontWeights({ style: variables })).toEqual(expected);
+		for (const userCssFirst of [false, true]) {
+			const setup: Setup = {
+				theme: 'spreadsheet',
+				userCss: `.my-grid { ${variables} }`,
+				userCssFirst
+			};
+			expect(fontWeights(setup)).toEqual(expected);
+		}
 	});
 });

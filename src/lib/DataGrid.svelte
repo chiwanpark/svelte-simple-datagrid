@@ -1080,6 +1080,8 @@
 		--ssdg-cell-padding: 0.5rem;
 		--ssdg-font-size: 0.875rem;
 		--ssdg-font-family: inherit;
+		--ssdg-header-font-weight: 600;
+		--ssdg-row-number-font-weight: 400;
 		--ssdg-radius: 0.375rem;
 		--ssdg-focus-width: 2px;
 	}
@@ -1174,7 +1176,7 @@
 		border-bottom-color: var(--ssdg-border-color);
 		background: var(--ssdg-header-bg);
 		color: var(--ssdg-header-color);
-		font-weight: 600;
+		font-weight: var(--ssdg-header-font-weight);
 	}
 
 	.ssdg-table th.ssdg-row-number {
@@ -1184,7 +1186,7 @@
 		border-right-color: var(--ssdg-border-color);
 		background: var(--ssdg-header-bg);
 		color: var(--ssdg-muted-color);
-		font-weight: 400;
+		font-weight: var(--ssdg-row-number-font-weight);
 		font-variant-numeric: tabular-nums;
 		text-align: right;
 		user-select: none;
@@ -1193,7 +1195,7 @@
 	.ssdg-table thead th.ssdg-row-number {
 		z-index: 3;
 		color: var(--ssdg-header-color);
-		font-weight: 600;
+		font-weight: var(--ssdg-header-font-weight);
 	}
 
 	.ssdg-table tbody th.ssdg-row-number.ssdg-selected {

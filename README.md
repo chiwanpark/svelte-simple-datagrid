@@ -445,31 +445,33 @@ A theme is just a `ssdg-theme-<name>` class on the wrapper that assigns CSS cust
 
 ### CSS custom properties
 
-| Property                     | Default                | Applies to                         |
-| ---------------------------- | ---------------------- | ---------------------------------- |
-| `--ssdg-bg`                  | `#fff`                 | Grid background                    |
-| `--ssdg-color`               | `#0f172a`              | Text colour                        |
-| `--ssdg-border-color`        | `#e2e8f0`              | Outer border, cell borders         |
-| `--ssdg-row-border-color`    | `--ssdg-border-color`  | Horizontal cell borders            |
-| `--ssdg-header-border-color` | `--ssdg-border-color`  | Header column separators           |
-| `--ssdg-header-bg`           | `#f8fafc`              | Header background                  |
-| `--ssdg-header-color`        | `inherit`              | Header text colour                 |
-| `--ssdg-header-height`       | `--ssdg-row-height`    | Header height                      |
-| `--ssdg-row-height`          | `2rem`                 | Body row height                    |
-| `--ssdg-stripe-bg`           | `transparent`          | Zebra striping (even rows)         |
-| `--ssdg-hover-bg`            | `transparent`          | Row hover background               |
-| `--ssdg-selection-bg`        | `rgb(37 99 235 / 10%)` | Selected cells                     |
-| `--ssdg-accent-color`        | `#2563eb`              | Focus outline, active page button  |
-| `--ssdg-focus-width`         | `2px`                  | Focus outline width                |
-| `--ssdg-cell-padding`        | `0.5rem`               | Cell and editor horizontal padding |
-| `--ssdg-font-family`         | `inherit`              | Grid font                          |
-| `--ssdg-font-size`           | `0.875rem`             | Grid font size                     |
-| `--ssdg-radius`              | `0.375rem`             | Wrapper corner radius              |
-| `--ssdg-muted-color`         | `#64748b`              | Secondary text, disabled items     |
-| `--ssdg-bottom-bar-bg`       | `#f8fafc`              | Bottom bar background              |
-| `--ssdg-menu-bg`             | `#fff`                 | Context menu background            |
-| `--ssdg-menu-hover-bg`       | `#f1f5f9`              | Context menu and pager hover       |
-| `--ssdg-editor-bg`           | `--ssdg-bg`            | Cell editor background             |
+| Property                        | Default                | Applies to                                  |
+| ------------------------------- | ---------------------- | ------------------------------------------- |
+| `--ssdg-bg`                     | `#fff`                 | Grid background                             |
+| `--ssdg-color`                  | `#0f172a`              | Text colour                                 |
+| `--ssdg-border-color`           | `#e2e8f0`              | Outer border, cell borders                  |
+| `--ssdg-row-border-color`       | `--ssdg-border-color`  | Horizontal cell borders                     |
+| `--ssdg-header-border-color`    | `--ssdg-border-color`  | Header column separators                    |
+| `--ssdg-header-bg`              | `#f8fafc`              | Header background                           |
+| `--ssdg-header-color`           | `inherit`              | Header text colour                          |
+| `--ssdg-header-height`          | `--ssdg-row-height`    | Header height                               |
+| `--ssdg-row-height`             | `2rem`                 | Body row height                             |
+| `--ssdg-stripe-bg`              | `transparent`          | Zebra striping (even rows)                  |
+| `--ssdg-hover-bg`               | `transparent`          | Row hover background                        |
+| `--ssdg-selection-bg`           | `rgb(37 99 235 / 10%)` | Selected cells                              |
+| `--ssdg-accent-color`           | `#2563eb`              | Focus outline, active page button           |
+| `--ssdg-focus-width`            | `2px`                  | Focus outline width                         |
+| `--ssdg-cell-padding`           | `0.5rem`               | Cell and editor horizontal padding          |
+| `--ssdg-font-family`            | `inherit`              | Grid font                                   |
+| `--ssdg-font-size`              | `0.875rem`             | Grid font size                              |
+| `--ssdg-header-font-weight`     | `600`                  | Header row, including the row number header |
+| `--ssdg-row-number-font-weight` | `400`                  | Row number cells                            |
+| `--ssdg-radius`                 | `0.375rem`             | Wrapper corner radius                       |
+| `--ssdg-muted-color`            | `#64748b`              | Secondary text, disabled items              |
+| `--ssdg-bottom-bar-bg`          | `#f8fafc`              | Bottom bar background                       |
+| `--ssdg-menu-bg`                | `#fff`                 | Context menu background                     |
+| `--ssdg-menu-hover-bg`          | `#f1f5f9`              | Context menu and pager hover                |
+| `--ssdg-editor-bg`              | `--ssdg-bg`            | Cell editor background                      |
 
 `--ssdg-cell-padding` is shared by cells and the built-in editors, so the text does not shift when a cell enters edit mode.
 
