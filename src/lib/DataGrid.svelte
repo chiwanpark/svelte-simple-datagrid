@@ -1186,7 +1186,7 @@
 		color: var(--ssdg-muted-color);
 		font-weight: 400;
 		font-variant-numeric: tabular-nums;
-		text-align: center;
+		text-align: right;
 		user-select: none;
 	}
 
