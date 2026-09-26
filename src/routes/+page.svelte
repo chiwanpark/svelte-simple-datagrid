@@ -56,6 +56,7 @@
 	let pageLog = $state<string[]>([]);
 	let lastPage = $derived(pageCount(rows.length, pageSize));
 	let currentPage = $derived(clampPage(page, rows.length, pageSize));
+	let columnWidths = $state<Record<string, number>>({});
 
 	const pageSizes = [5, 10, 25];
 
@@ -69,14 +70,13 @@
 			width: '4rem',
 			editable: false
 		},
-		{ id: 'name', header: 'Name', value: (row) => row.name, sortable: true, width: '12rem' },
+		{ id: 'name', header: 'Name', value: (row) => row.name, sortable: true },
 		{
 			id: 'category',
 			header: 'Category',
 			value: (row) => row.category,
 			options: categories,
-			sortable: true,
-			width: '10rem'
+			sortable: true
 		},
 		{
 			id: 'price',
@@ -193,8 +193,10 @@
 		Category and stock cells use the select editor. Click a cell to focus, drag or shift+arrows to
 		select, Enter/F2 or double click to edit, Ctrl/Cmd+C / Ctrl/Cmd+V to copy &amp; paste, Delete to
 		clear, right click for the context menu. Click or drag row numbers to select whole rows. Drag a
-		header edge to resize a column, or double click it to fit the content. The pagination toolbar
-		drives the grid through its exported <code>setPage</code> and <code>setPageSize</code> methods.
+		header edge to resize a column, or double click it to fit the content. Name and Category have no
+		width, so <code>autoSize</code> fits them to their content. The toolbars drive the grid through
+		its exported <code>setPage</code>, <code>setPageSize</code> and <code>autoSizeColumns</code>
+		methods.
 	</p>
 
 	<div class="toolbar">
@@ -271,6 +273,18 @@
 		<span class="page-status">Page {currentPage} of {lastPage}</span>
 	</div>
 
+	<div class="toolbar">
+		<span>Column sizing API</span>
+		<button type="button" onclick={() => grid?.autoSizeColumns()}>Fit all columns</button>
+		<button type="button" onclick={() => grid?.autoSizeColumns(undefined, { skipHeader: true })}>
+			Fit to cells only
+		</button>
+		<button type="button" onclick={() => grid?.autoSizeColumns(['name'], { maxWidth: 80 })}>
+			Fit Name, max 80px
+		</button>
+		<button type="button" onclick={() => (columnWidths = {})}>Reset widths</button>
+	</div>
+
 	<DataGrid
 		bind:this={grid}
 		{rows}
@@ -287,6 +301,8 @@
 		bind:page
 		bind:pageSize
 		height="24rem"
+		bind:columnWidths
+		autoSize
 		onchange={handleChange}
 		onfocuschange={(cell) => (focused = cell)}
 		onpagechange={(next) => logPage(`onpagechange(${next})`)}
@@ -320,6 +336,18 @@
 				<ul>
 					{#each pageLog as entry, index (`${entry}-${index}`)}
 						<li>{entry}</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+		<div>
+			<h2>Column widths</h2>
+			{#if Object.keys(columnWidths).length === 0}
+				<p>none</p>
+			{:else}
+				<ul>
+					{#each Object.entries(columnWidths) as [id, width] (id)}
+						<li>{id}: {width}px</li>
 					{/each}
 				</ul>
 			{/if}

@@ -25,10 +25,12 @@
 	} from './core/selection.js';
 	import { nextSortState, sortEntries } from './core/sort.js';
 	import type {
+		AutoSizeOptions,
 		BottomBarContext,
 		CellChange,
 		CellPosition,
 		Column,
+		ColumnResizeEvent,
 		ContextMenuItem,
 		DataGridProps,
 		EditorMove,
@@ -50,6 +52,7 @@
 		resizable = true,
 		columnWidths = $bindable({}),
 		oncolumnresize,
+		autoSize = false,
 		paginated = false,
 		page = $bindable(1),
 		pageSize = $bindable(20),
@@ -96,6 +99,9 @@
 		rowNumbers === true ? {} : rowNumbers || null
 	);
 	let rowNumbersSelectable = $derived(rowNumberOptions?.selectable ?? true);
+	let autoSizeOptions = $derived<AutoSizeOptions | null>(
+		autoSize === true ? {} : autoSize || null
+	);
 	let rowNumberWidth = $derived(
 		rowNumberOptions?.width ??
 			`calc(${Math.max(String(totalRows).length, 2)}ch + 2 * var(--ssdg-cell-padding) + 1px)`
@@ -143,6 +149,27 @@
 		}
 	});
 
+	$effect(() => {
+		if (table) autoSizePending();
+	});
+
+	$effect(() => {
+		const viewport = table?.parentElement;
+		if (!autoSize || !viewport || typeof ResizeObserver === 'undefined') return;
+
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(autoSizePending);
+		});
+		observer.observe(viewport);
+
+		return () => {
+			observer.disconnect();
+			cancelAnimationFrame(frame);
+		};
+	});
+
 	function columnAt(index: number): Column<TRow> | undefined {
 		return columns[index];
 	}
@@ -161,11 +188,13 @@
 		return header?.getBoundingClientRect().width ?? 0;
 	}
 
-	function setColumnWidth(column: Column<TRow>, width: number) {
-		const next = Math.round(Math.max(width, column.minWidth ?? 40));
-		if (columnWidths[column.id] === next) return next;
+	function clampWidth(column: Column<TRow>, width: number): number {
+		return Math.round(Math.max(width, column.minWidth ?? 40));
+	}
 
-		columnWidths = { ...columnWidths, [column.id]: next };
+	function setColumnWidth(column: Column<TRow>, width: number) {
+		const next = clampWidth(column, width);
+		if (columnWidths[column.id] !== next) columnWidths = { ...columnWidths, [column.id]: next };
 		return next;
 	}
 
@@ -210,33 +239,94 @@
 
 		const step = (event.shiftKey ? 40 : 8) * (event.key === 'ArrowRight' ? 1 : -1);
 		const base = columnWidths[column.id] ?? measuredWidth(columnIndex);
-		oncolumnresize?.({ columnId: column.id, width: setColumnWidth(column, base + step) });
+		const width = setColumnWidth(column, base + step);
+		oncolumnresize?.({ columnId: column.id, width });
 	}
 
-	function autoSizeColumn(column: Column<TRow>, columnIndex: number) {
+	function measureColumns(targets: Column<TRow>[], skipHeader: boolean): Map<string, number> {
+		const widths = new Map<string, number>();
 		const element = table;
-		if (!element) return;
+		if (!element || targets.length === 0) return widths;
 
-		const col = element.querySelector<HTMLElement>(`col[data-col="${columnIndex}"]`);
-		const previousLayout = element.style.tableLayout;
-		const previousWidth = col?.style.width ?? '';
+		const head = skipHeader ? element.tHead : null;
+		const viewport = head ? element.parentElement : null;
+		const scrollTop = viewport?.scrollTop ?? 0;
+		const indexes = targets.map((column) => columns.indexOf(column));
+		const cols = indexes.map((index) =>
+			element.querySelector<HTMLElement>(`col[data-col="${index}"]`)
+		);
+		const saved = {
+			layout: element.style.tableLayout,
+			width: element.style.width,
+			display: head?.style.display ?? '',
+			cols: cols.map((col) => col?.style.width ?? '')
+		};
 
 		element.style.tableLayout = 'auto';
-		if (col) col.style.width = 'auto';
+		element.style.width = 'max-content';
+		if (head) head.style.display = 'none';
+		for (const col of cols) if (col) col.style.width = 'auto';
 
-		let width = 0;
-		for (const cell of element.querySelectorAll<HTMLElement>(
-			`th[data-col="${columnIndex}"], td[data-col="${columnIndex}"]`
-		)) {
-			width = Math.max(width, cell.getBoundingClientRect().width, cell.scrollWidth);
+		targets.forEach((column, i) => {
+			const cell = element.querySelector<HTMLElement>(`td[data-col="${indexes[i]}"]`) ??
+				(head ? null : element.querySelector<HTMLElement>(`th[data-col="${indexes[i]}"]`));
+			const width = cell?.getBoundingClientRect().width ?? 0;
+			if (width > 0) widths.set(column.id, width);
+		});
+
+		const scrollChanged = !!viewport && viewport.scrollTop !== scrollTop;
+		element.style.tableLayout = saved.layout;
+		element.style.width = saved.width;
+		if (head) head.style.display = saved.display;
+		cols.forEach((col, i) => {
+			if (col) col.style.width = saved.cols[i];
+		});
+		if (viewport && scrollChanged) viewport.scrollTop = scrollTop;
+
+		return widths;
+	}
+
+	function fitColumns(targets: Column<TRow>[], options: AutoSizeOptions, notify: boolean) {
+		const measured = measureColumns(targets, options.skipHeader ?? false);
+		if (measured.size === 0) return;
+
+		const maxWidth = options.maxWidth !== undefined && options.maxWidth > 0
+			? options.maxWidth
+			: Infinity;
+		const next = { ...columnWidths };
+		const events: ColumnResizeEvent[] = [];
+
+		for (const column of targets) {
+			const width = measured.get(column.id);
+			if (width === undefined) continue;
+
+			next[column.id] = clampWidth(column, Math.min(width + 2, maxWidth));
+			events.push({ columnId: column.id, width: next[column.id] });
 		}
 
-		element.style.tableLayout = previousLayout;
-		if (col) col.style.width = previousWidth;
+		if (events.some((event) => columnWidths[event.columnId] !== event.width)) columnWidths = next;
+		if (!notify) return;
 
-		if (width > 0) {
-			oncolumnresize?.({ columnId: column.id, width: setColumnWidth(column, width + 2) });
-		}
+		for (const event of events) oncolumnresize?.(event);
+	}
+
+	function autoSizePending() {
+		const options = autoSizeOptions;
+		if (!options || viewEntries.length === 0) return;
+
+		const pending = columns.filter(
+			(column) => column.width === undefined && columnWidths[column.id] === undefined
+		);
+		if (pending.length > 0) fitColumns(pending, options, false);
+	}
+
+	export async function autoSizeColumns(columnIds?: string[], options: AutoSizeOptions = {}) {
+		await tick();
+		const targets = columnIds
+			? columns.filter((column) => columnIds.includes(column.id))
+			: columns;
+		fitColumns(targets, options, true);
+		await tick();
 	}
 
 	function entryAt(index: number) {
@@ -859,7 +949,7 @@
 									aria-label="Resize {column.header}"
 									onpointerdown={(event) => startResize(event, column, columnIndex)}
 									onkeydown={(event) => handleResizeKeydown(event, column, columnIndex)}
-									ondblclick={() => autoSizeColumn(column, columnIndex)}
+									ondblclick={() => fitColumns([column], {}, true)}
 								></button>
 							{/if}
 						</th>

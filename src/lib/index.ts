@@ -35,6 +35,7 @@ export {
 export { compareValues, nextSortState, sortEntries, sortRows } from './core/sort.js';
 
 export type {
+	AutoSizeOptions,
 	BottomBarContext,
 	CellChange,
 	CellContext,

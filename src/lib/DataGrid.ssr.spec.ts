@@ -65,4 +65,10 @@ describe('DataGrid rendering', () => {
 		const { body } = render(Grid, { props: { rows, columns, rowNumbers: true } });
 		expect(body.match(/<th scope="row"[^>]*ssdg-row-number/g)).toHaveLength(3);
 	});
+
+	it('renders auto-sized grids without measuring', () => {
+		const { body } = render(Grid, { props: { rows, columns, autoSize: { maxWidth: 200 } } });
+		expect(body).toContain('Alice');
+		expect(body).not.toContain('width:');
+	});
 });
