@@ -88,6 +88,11 @@ export interface ColumnResizeEvent {
 	width: number;
 }
 
+export interface AutoSizeOptions {
+	skipHeader?: boolean;
+	maxWidth?: number;
+}
+
 export interface RowNumbersOptions<TRow> {
 	header?: string;
 	width?: string;
@@ -157,6 +162,7 @@ export interface DataGridProps<TRow> {
 	resizable?: boolean;
 	columnWidths?: Record<string, number>;
 	oncolumnresize?: (event: ColumnResizeEvent) => void;
+	autoSize?: boolean | AutoSizeOptions;
 
 	paginated?: boolean;
 	page?: number;

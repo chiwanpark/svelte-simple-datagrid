@@ -7,7 +7,7 @@ A simple, lightweight datagrid component for Svelte 5, written in TypeScript.
 - Clipboard copy / cut / paste using TSV (Excel & Sheets compatible)
 - Custom rendering through snippets and `format` hooks
 - Client-side sorting and pagination
-- Drag to resize columns, with keyboard resizing and double-click auto-fit
+- Drag to resize columns, with keyboard resizing and auto-sizing to fit the content
 - Optional auto-generated row number column with whole-row selection, like AG Grid's Row Numbers
 - Bottom bar with row counts, page size selector and pager, built from exported parts you can recompose
 - Context menu with default clipboard actions and custom items
@@ -80,8 +80,9 @@ The grid never mutates `rows`. Every edit, paste, cut or clear is reported throu
 | `onfocuschange`    | `(cell: FocusedCell \| null) => void`           | –                   | Called when the focused cell changes.                             |
 | `clipboard`        | `boolean`                                       | `true`              | Enables copy / cut / paste.                                       |
 | `resizable`        | `boolean`                                       | `true`              | Enables column resize handles.                                    |
-| `columnWidths`     | `Record<string, number>` (bindable)             | `{}`                | Resized widths in px, keyed by column id.                         |
+| `columnWidths`     | `Record<string, number>` (bindable)             | `{}`                | Resized or auto-sized widths in px, keyed by column id.           |
 | `oncolumnresize`   | `(event: ColumnResizeEvent) => void`            | –                   | Called after a column is resized.                                 |
+| `autoSize`         | `boolean \| AutoSizeOptions`                    | `false`             | Fits columns without a width. See [Auto-sizing](#auto-sizing).    |
 | `paginated`        | `boolean`                                       | `false`             | Enables client-side pagination.                                   |
 | `page`             | `number` (bindable)                             | `1`                 | Current page, 1-based.                                            |
 | `pageSize`         | `number` (bindable)                             | `20`                | Rows per page.                                                    |
@@ -104,7 +105,7 @@ The grid never mutates `rows`. Every edit, paste, cut or clear is reported throu
 
 ## Methods
 
-Bind the component with `bind:this` to drive pagination from outside the grid:
+Bind the component with `bind:this` to drive pagination and column sizing from outside the grid:
 
 ```svelte
 <script lang="ts">
@@ -113,16 +114,18 @@ Bind the component with `bind:this` to drive pagination from outside the grid:
 
 <button onclick={() => grid?.setPage(1)}>First page</button>
 <button onclick={() => grid?.setPageSize(50)}>50 rows per page</button>
+<button onclick={() => grid?.autoSizeColumns()}>Fit columns</button>
 
 <DataGrid bind:this={grid} {rows} {columns} paginated />
 ```
 
-| Method                          | Description                                                                               |
-| ------------------------------- | ----------------------------------------------------------------------------------------- |
-| `setPage(page: number)`         | Moves to `page`, clamped to the valid range. Non-finite values go to page 1.              |
-| `setPageSize(pageSize: number)` | Sets the rows per page and returns to page 1. Anything but a positive integer is ignored. |
+| Method                                                             | Description                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `setPage(page: number)`                                            | Moves to `page`, clamped to the valid range. Non-finite values go to page 1.               |
+| `setPageSize(pageSize: number)`                                    | Sets the rows per page and returns to page 1. Anything but a positive integer is ignored.  |
+| `autoSizeColumns(columnIds?: string[], options?: AutoSizeOptions)` | Fits the given columns, or all columns, to their content. See [Auto-sizing](#auto-sizing). |
 
-Both behave exactly like the built-in pager and page size selector: they clear the focus and selection, update the bindable `page` and `pageSize`, and fire `onpagechange` and `onpagesizechange`. Assigning `page` or `pageSize` through `bind:` also moves the grid, but skips all of that, and an out-of-range `page` is only clamped for display.
+`setPage` and `setPageSize` behave exactly like the built-in pager and page size selector: they clear the focus and selection, update the bindable `page` and `pageSize`, and fire `onpagechange` and `onpagesizechange`. Assigning `page` or `pageSize` through `bind:` also moves the grid, but skips all of that, and an out-of-range `page` is only clamped for display.
 
 To jump to the last page, pass `pageCount(totalRows, pageSize)`, which is exported along with the other pagination helpers.
 
@@ -151,7 +154,7 @@ interface Column<TRow> {
 
 - `format` controls the displayed text and the clipboard output.
 - `parse` converts pasted or typed text back into a value. Without it, the previous value type is used to guess (number, boolean, date, string).
-- `width` is any CSS width used as the initial size; `minWidth` (px, default `40`) limits shrinking while resizing.
+- `width` is any CSS width used as the initial size; `minWidth` (px, default `40`) limits shrinking while resizing and auto-sizing.
 - `resizable` overrides the grid-level `resizable` per column.
 - `options` turns the column into a categorical column edited with a select box.
 - `setValue` is used by `applyCellChanges`; the default writes to the property named after `column.id`.
@@ -218,7 +221,32 @@ Widths live in `columnWidths`, keyed by column id, so they can be persisted or r
 <DataGrid {rows} {columns} bind:columnWidths oncolumnresize={(event) => save(event)} />
 ```
 
-The table uses a fixed layout with a trailing spacer column, so resized widths are exact: leftover space stays empty instead of being spread across the columns, and the grid scrolls horizontally once the columns are wider than the viewport. Columns without a `width` share the available space equally.
+The table uses a fixed layout with a trailing spacer column, so resized widths are exact: leftover space stays empty instead of being spread across the columns, and the grid scrolls horizontally once the columns are wider than the viewport. Columns without a `width` share the available space equally, unless `autoSize` sizes them to their content.
+
+### Auto-sizing
+
+Set `autoSize` to size columns to their header and cells once the grid has rows, or call `autoSizeColumns` to fit columns on demand:
+
+```svelte
+<DataGrid bind:this={grid} {rows} {columns} autoSize={{ maxWidth: 400 }} />
+
+<button onclick={() => grid?.autoSizeColumns()}>Fit all columns</button>
+<button onclick={() => grid?.autoSizeColumns(['name'], { skipHeader: true })}>Fit names</button>
+```
+
+```ts
+interface AutoSizeOptions {
+	skipHeader?: boolean;
+	maxWidth?: number;
+}
+```
+
+- `autoSize` sizes every column that has neither a `width` nor a `columnWidths` entry. Columns added later, or removed from `columnWidths`, are sized as they appear, and widths that are already set are never replaced. Give a column a `width` to keep it out.
+- `autoSizeColumns(columnIds?, options?)` fits the given columns, or all of them, including columns with a `width`. It waits for pending updates, so it can be called right after changing `rows`, and resolves once the new widths are rendered.
+- `skipHeader` measures the cells only. `maxWidth` (px) caps the result, and the column's `minWidth` still applies.
+- Only rendered rows are measured, which is the current page when paginated.
+- The widths are stored in `columnWidths`. `autoSizeColumns` and the double click fire `oncolumnresize` for each column; `autoSize` does not, since it is the initial layout rather than a resize.
+- A grid mounted while hidden, for example in a `display: none` tab, is sized once it becomes visible.
 
 ## Row numbers
 

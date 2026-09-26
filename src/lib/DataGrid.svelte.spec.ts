@@ -1,7 +1,13 @@
 import { flushSync, mount, tick, unmount, type Component } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DataGrid from './DataGrid.svelte';
-import type { CellChange, Column, ContextMenuItem, DataGridProps } from './core/types.js';
+import type {
+	AutoSizeOptions,
+	CellChange,
+	Column,
+	ContextMenuItem,
+	DataGridProps
+} from './core/types.js';
 
 interface Person {
 	name: string;
@@ -38,6 +44,7 @@ const columns: Column<Person>[] = [
 type GridExports = {
 	setPage: (page: number) => void;
 	setPageSize: (pageSize: number) => void;
+	autoSizeColumns: (columnIds?: string[], options?: AutoSizeOptions) => Promise<void>;
 };
 
 const Grid = DataGrid as unknown as Component<DataGridProps<Person>, GridExports>;
@@ -697,12 +704,227 @@ describe('column resizing', () => {
 		expect(oncolumnresize).toHaveBeenLastCalledWith({ columnId: 'name', width: 68 });
 	});
 
+	it('resizes with the arrow keys without an oncolumnresize handler', () => {
+		const { table } = setup({ columnWidths: { name: 100 } });
+
+		keydown(resizer(table, 0), 'ArrowRight');
+		expect(col(table, 0).style.width).toBe('108px');
+	});
+
 	it('keeps a trailing spacer cell out of the grid model', () => {
 		const { table, cell } = setup();
 
 		expect(table.querySelectorAll('tbody tr:first-child td')).toHaveLength(3);
 		expect(table.querySelectorAll('tbody tr:first-child td[data-col]')).toHaveLength(2);
 		expect(cell(0, 1).nextElementSibling?.classList.contains('ssdg-spacer')).toBe(true);
+	});
+
+	describe('auto-sizing', () => {
+		const sizingColumns: Column<Person>[] = [
+			{ id: 'name', header: 'Name', value: (row) => row.name },
+			{ id: 'role', header: 'Role title', value: (row) => row.role }
+		];
+
+		let hidden = false;
+
+		function textWidth(cell: HTMLElement) {
+			return (cell.textContent ?? '').trim().length * 10 + 20;
+		}
+
+		function mockLayout() {
+			hidden = false;
+			vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function(
+				this: HTMLElement
+			) {
+				const table = this.closest('table');
+				const index = this.dataset.col;
+				if (hidden || !table || index === undefined) return new DOMRect();
+				if (table.style.tableLayout !== 'auto') return new DOMRect(0, 0, 50, 20);
+				if (this.closest('thead')?.style.display === 'none') return new DOMRect();
+
+				const cells = [...table.querySelectorAll<HTMLElement>(`:is(th, td)[data-col="${index}"]`)];
+				const visible = cells.filter((cell) => cell.closest('thead')?.style.display !== 'none');
+				const slack = table.style.width === 'max-content' ? 0 : 600;
+				return new DOMRect(0, 0, Math.max(...visible.map(textWidth)) + slack, 20);
+			});
+		}
+
+		function mountWith(props: DataGridProps<Person>) {
+			const target = document.createElement('div');
+			document.body.append(target);
+			component = mount(Grid, { target, props });
+			flushSync();
+			return { table: target.querySelector('table') as HTMLTableElement, grid: component };
+		}
+
+		afterEach(() => {
+			vi.restoreAllMocks();
+			vi.unstubAllGlobals();
+		});
+
+		it('fits every column to its header and cells', async () => {
+			mockLayout();
+			const oncolumnresize = vi.fn();
+			const { table, grid } = setup({ columns: sizingColumns, oncolumnresize });
+
+			await grid.autoSizeColumns();
+
+			expect(col(table, 0).style.width).toBe('72px');
+			expect(col(table, 1).style.width).toBe('122px');
+			expect(oncolumnresize).toHaveBeenCalledTimes(2);
+			expect(oncolumnresize).toHaveBeenCalledWith({ columnId: 'name', width: 72 });
+			expect(oncolumnresize).toHaveBeenCalledWith({ columnId: 'role', width: 122 });
+			expect(table.style.tableLayout).toBe('');
+			expect(table.style.width).toBe('');
+		});
+
+		it('sizes only the given columns', async () => {
+			mockLayout();
+			const oncolumnresize = vi.fn();
+			const { table, grid } = setup({ columns: sizingColumns, oncolumnresize });
+
+			await grid.autoSizeColumns(['role', 'missing']);
+
+			expect(col(table, 0).style.width).toBe('');
+			expect(col(table, 1).style.width).toBe('122px');
+			expect(oncolumnresize).toHaveBeenCalledOnce();
+		});
+
+		it('can skip the header and cap the width', async () => {
+			mockLayout();
+			const { table, grid } = setup({
+				columns: [...sizingColumns, { id: 'age', header: 'Age', value: (row) => row.age }]
+			});
+
+			await grid.autoSizeColumns(undefined, { skipHeader: true });
+			expect(col(table, 1).style.width).toBe('72px');
+			expect(col(table, 2).style.width).toBe('42px');
+			expect(table.querySelector('thead')?.style.display).toBe('');
+
+			await grid.autoSizeColumns(['role'], { maxWidth: 100 });
+			expect(col(table, 1).style.width).toBe('100px');
+		});
+
+		it('respects the column minimum width', async () => {
+			mockLayout();
+			const { table, grid } = setup({
+				columns: [{ id: 'age', header: 'Age', value: (row: Person) => row.age, minWidth: 90 }]
+			});
+
+			await grid.autoSizeColumns();
+			expect(col(table, 0).style.width).toBe('90px');
+		});
+
+		it('measures rows changed right before the call', async () => {
+			mockLayout();
+			const props = $state<DataGridProps<Person>>({ rows: baseRows, columns: sizingColumns });
+			const { table, grid } = mountWith(props);
+
+			props.rows = [...baseRows, { name: 'Bartholomew', age: 40, role: 'user' }];
+			await grid.autoSizeColumns(['name']);
+
+			expect(col(table, 0).style.width).toBe('132px');
+		});
+
+		it('fits a column when its handle is double clicked', () => {
+			mockLayout();
+			const { table } = setup({ columns: sizingColumns });
+
+			resizer(table, 1).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+			flushSync();
+
+			expect(col(table, 1).style.width).toBe('122px');
+		});
+
+		it('sizes columns without a width through the autoSize prop', () => {
+			mockLayout();
+			const oncolumnresize = vi.fn();
+			const { table } = setup({
+				columns: [
+					...sizingColumns,
+					{ id: 'age', header: 'Age', value: (row: Person) => row.age, width: '5rem' }
+				],
+				columnWidths: { role: 200 },
+				autoSize: true,
+				oncolumnresize
+			});
+
+			expect(col(table, 0).style.width).toBe('72px');
+			expect(col(table, 1).style.width).toBe('200px');
+			expect(col(table, 2).style.width).toBe('5rem');
+			expect(oncolumnresize).not.toHaveBeenCalled();
+		});
+
+		it('passes the autoSize options to the measurement', () => {
+			mockLayout();
+			const { table } = setup({
+				columns: sizingColumns,
+				autoSize: { skipHeader: true, maxWidth: 70 }
+			});
+
+			expect(col(table, 0).style.width).toBe('70px');
+			expect(col(table, 1).style.width).toBe('70px');
+		});
+
+		it('waits for rows and sizes columns as they appear', () => {
+			mockLayout();
+			const props = $state<DataGridProps<Person>>({
+				rows: [],
+				columns: sizingColumns,
+				autoSize: true
+			});
+			const { table } = mountWith(props);
+			expect(col(table, 0).style.width).toBe('');
+
+			props.rows = baseRows;
+			flushSync();
+			expect(col(table, 0).style.width).toBe('72px');
+			expect(col(table, 1).style.width).toBe('122px');
+
+			keydown(resizer(table, 0), 'ArrowRight');
+			props.columns = [...sizingColumns, { id: 'age', header: 'Age', value: (row) => row.age }];
+			flushSync();
+			expect(col(table, 0).style.width).toBe('80px');
+			expect(col(table, 2).style.width).toBe('52px');
+
+			props.columnWidths = {};
+			flushSync();
+			expect(col(table, 0).style.width).toBe('72px');
+		});
+
+		it('sizes a hidden grid once it is shown', () => {
+			mockLayout();
+			hidden = true;
+
+			const observers: { callback: () => void; disconnect: () => void }[] = [];
+			vi.stubGlobal(
+				'ResizeObserver',
+				class {
+					disconnect = vi.fn();
+					constructor(public callback: () => void) {
+						observers.push(this);
+					}
+					observe() {}
+				}
+			);
+			vi.stubGlobal('requestAnimationFrame', (callback: () => void) => {
+				callback();
+				return 1;
+			});
+			vi.stubGlobal('cancelAnimationFrame', () => {});
+
+			const { table } = setup({ columns: sizingColumns, autoSize: true });
+			expect(col(table, 0).style.width).toBe('');
+
+			hidden = false;
+			observers[0].callback();
+			flushSync();
+			expect(col(table, 0).style.width).toBe('72px');
+
+			if (component) unmount(component);
+			component = null;
+			expect(observers[0].disconnect).toHaveBeenCalled();
+		});
 	});
 });
 
