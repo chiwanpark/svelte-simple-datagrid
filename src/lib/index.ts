@@ -2,8 +2,11 @@ export { default as DataGrid } from './DataGrid.svelte';
 export { default as BottomBar } from './components/BottomBar.svelte';
 export { default as CellEditor } from './components/CellEditor.svelte';
 export { default as ContextMenu } from './components/ContextMenu.svelte';
+export { default as PageSizeSelect } from './components/PageSizeSelect.svelte';
 export { default as Pagination } from './components/Pagination.svelte';
+export { default as RowCount } from './components/RowCount.svelte';
 export { default as SelectEditor } from './components/SelectEditor.svelte';
+export { default as SelectionCount } from './components/SelectionCount.svelte';
 
 export { expandMatrix, parseTsv, toTsv } from './core/clipboard.js';
 export { escapeCsvValue, toCsv } from './core/csv.js';

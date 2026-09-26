@@ -9,7 +9,7 @@ A simple, lightweight datagrid component for Svelte 5, written in TypeScript.
 - Client-side sorting and pagination
 - Drag to resize columns, with keyboard resizing and double-click auto-fit
 - Optional auto-generated row number column with whole-row selection, like AG Grid's Row Numbers
-- Bottom bar with row counts, page size selector and pager
+- Bottom bar with row counts, page size selector and pager, built from exported parts you can recompose
 - Context menu with default clipboard actions and custom items
 - CSV download built in, XLSX download through the optional `write-excel-file` peer dependency
 - Themeable through CSS custom properties, including a built-in `spreadsheet` theme
@@ -283,16 +283,39 @@ Hiding it does not disable pagination: rows are still paged, PageUp / PageDown s
 
 The bar is responsive: it uses container queries on the grid itself, not on the viewport, so it adapts whenever the grid is narrow. Below `30rem` the counts and the controls stack into two rows, below `26rem` the pager collapses to `‹ 3 / 6 ›`, and below `20rem` the first/last buttons are dropped and the remaining controls grow for touch.
 
-Use `bottomBarContent` to keep the bar but replace its content:
+Use `bottomBarContent` to keep the bar but replace its content. The default content is built from exported parts, so a custom bar can reuse them next to your own controls:
 
 ```svelte
+<script lang="ts">
+	import {
+		DataGrid,
+		PageSizeSelect,
+		Pagination,
+		RowCount,
+		SelectionCount,
+		type BottomBarContext
+	} from '@chiwanpark/svelte-simple-datagrid';
+</script>
+
 <DataGrid {rows} {columns} paginated bottomBarContent={footer} />
 
-{#snippet footer({ totalRows, page, pageCount, setPage })}
-	<span>{totalRows} rows</span>
-	<button onclick={() => setPage(page + 1)} disabled={page >= pageCount}>Next</button>
+{#snippet footer(context: BottomBarContext)}
+	<RowCount {context} />
+	<SelectionCount {context} />
+	<button onclick={refresh}>Refresh</button>
+	<PageSizeSelect {context} />
+	<Pagination page={context.page} pageCount={context.pageCount} onpage={context.setPage} />
 {/snippet}
 ```
+
+| Component        | Props                                        | Renders                                                             |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| `RowCount`       | `context`                                    | `1–20 of 57` when paginated, `57 rows` otherwise.                   |
+| `SelectionCount` | `context`                                    | `6 cells selected`, only when more than one cell is selected.       |
+| `PageSizeSelect` | `context`                                    | The page size selector built from `pageSizeOptions`.                |
+| `Pagination`     | `page`, `pageCount`, `onpage`, `maxButtons?` | The pager. It takes plain props, so it also works outside the grid. |
+
+The snippet's elements are laid out as flex items spread across the bar, and they stack in narrow grids like the default content. Wrap them in your own elements to group them. The parts render regardless of `context.paginated`, so check it yourself if the grid toggles pagination.
 
 ## Clipboard
 

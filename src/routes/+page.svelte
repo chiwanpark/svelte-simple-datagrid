@@ -5,7 +5,11 @@
 		DataGrid,
 		downloadCsv,
 		pageCount,
+		Pagination,
+		RowCount,
+		SelectionCount,
 		sortRows,
+		type BottomBarContext,
 		type CellChange,
 		type Column,
 		type ContextMenuItem,
@@ -26,20 +30,23 @@
 
 	const categories = ['Peripherals', 'Displays', 'Accessories', 'Audio'];
 
-	let rows = $state<Product[]>(
-		Array.from({ length: 57 }, (_, index) => ({
+	function createRows(): Product[] {
+		return Array.from({ length: 57 }, (_, index) => ({
 			id: index + 1,
 			name: `Product ${String(index + 1).padStart(2, '0')}`,
 			category: categories[index % categories.length],
 			price: Math.round((20 + index * 7.31) * 100) / 100,
 			quantity: (index * 13) % 40,
 			inStock: index % 3 !== 0
-		}))
-	);
+		}));
+	}
+
+	let rows = $state<Product[]>(createRows());
 
 	let focused = $state<FocusedCell | null>(null);
 	let log = $state<string[]>([]);
 	let theme = $state<GridTheme>('spreadsheet');
+	let bottomBarMode = $state<'default' | 'custom'>('default');
 	let sort = $state<SortState | null>(null);
 
 	let grid = $state<DataGrid<Product>>();
@@ -111,6 +118,11 @@
 		].slice(0, 6);
 	}
 
+	function resetRows() {
+		rows = createRows();
+		log = [];
+	}
+
 	async function download(format: 'csv' | 'xlsx') {
 		const sorted = sortRows(rows, columns, sort);
 
@@ -166,6 +178,15 @@
 	<span class="badge" class:badge-on={value === true}>{value ? 'In stock' : 'Out'}</span>
 {/snippet}
 
+{#snippet customBottomBar(context: BottomBarContext)}
+	<Pagination page={context.page} pageCount={context.pageCount} onpage={context.setPage} />
+	<button type="button" class="bar-button" onclick={resetRows}>Reset data</button>
+	<div class="bar-info">
+		<RowCount {context} />
+		<SelectionCount {context} />
+	</div>
+{/snippet}
+
 <main>
 	<h1>@chiwanpark/svelte-simple-datagrid</h1>
 	<p class="hint">
@@ -177,13 +198,25 @@
 	</p>
 
 	<div class="toolbar">
-		<span>Theme</span>
-		{#each ['default', 'spreadsheet'] as const as option (option)}
-			<label>
-				<input type="radio" value={option} bind:group={theme} />
-				{option}
-			</label>
-		{/each}
+		<div class="option-group">
+			<span>Theme</span>
+			{#each ['default', 'spreadsheet'] as const as option (option)}
+				<label>
+					<input type="radio" name="theme" value={option} bind:group={theme} />
+					{option}
+				</label>
+			{/each}
+		</div>
+
+		<div class="option-group">
+			<span>Bottom bar</span>
+			{#each ['default', 'custom'] as const as option (option)}
+				<label>
+					<input type="radio" name="bottom-bar" value={option} bind:group={bottomBarMode} />
+					{option}
+				</label>
+			{/each}
+		</div>
 
 		<button type="button" onclick={() => download('csv')}>Download CSV</button>
 		<button type="button" onclick={() => download('xlsx')}>Download XLSX</button>
@@ -259,6 +292,7 @@
 		onpagechange={(next) => logPage(`onpagechange(${next})`)}
 		onpagesizechange={(next) => logPage(`onpagesizechange(${next})`)}
 		contextMenuItems={menuItems}
+		bottomBarContent={bottomBarMode === 'custom' ? customBottomBar : undefined}
 	/>
 
 	<section class="status">
@@ -317,11 +351,17 @@
 		font-size: 0.875rem;
 	}
 
+	.option-group,
 	.toolbar label,
 	.toolbar form {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
+	}
+
+	.option-group {
+		gap: 0.75rem;
+		margin-right: 0.5rem;
 	}
 
 	.toolbar input[type='number'] {
@@ -356,6 +396,28 @@
 	.page-status {
 		margin-left: auto;
 		font-variant-numeric: tabular-nums;
+	}
+
+	.bar-button {
+		height: 1.75rem;
+		padding: 0 0.625rem;
+		border: 1px solid var(--ssdg-border-color, #e2e8f0);
+		border-radius: 0.25rem;
+		background: var(--ssdg-menu-bg, #fff);
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.bar-button:hover {
+		background: var(--ssdg-menu-hover-bg, #f1f5f9);
+	}
+
+	.bar-info {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem 0.75rem;
 	}
 
 	.badge {
