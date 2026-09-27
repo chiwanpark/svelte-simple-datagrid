@@ -82,6 +82,7 @@
 	let table = $state<HTMLTableElement | null>(null);
 	let resizing = $state.raw<{ columnId: string; startX: number; startWidth: number } | null>(null);
 	let dragging: 'cells' | 'rows' | null = null;
+	let lastRowAtEdge = $state(true);
 
 	let entries = $derived(rows.map((row, index) => ({ row, index })));
 	let sortedEntries = $derived(sortEntries(entries, columns, sort));
@@ -103,9 +104,19 @@
 	let autoSizeOptions = $derived<AutoSizeOptions | null>(
 		autoSize === true ? {} : autoSize || null
 	);
+	let rowNumberFitWidth = $state.raw<number | null>(null);
+	let rowNumberLabel = $derived.by(() => {
+		const last = sortedEntries[totalRows - 1];
+		if (!rowNumberOptions || rowNumberOptions.width !== undefined || !last) return '';
+		return rowNumberOptions.format
+			? rowNumberOptions.format(totalRows, last.row)
+			: String(totalRows).padStart(2, '0');
+	});
 	let rowNumberWidth = $derived(
 		rowNumberOptions?.width ??
-			`calc(${Math.max(String(totalRows).length, 2)}ch + 2 * var(--ssdg-cell-padding) + 1px)`
+			(rowNumberFitWidth === null
+				? `calc(${Math.max(String(totalRows).length, 2)}ch + 2 * var(--ssdg-cell-padding) + 1px)`
+				: `${rowNumberFitWidth}px`)
 	);
 
 	let focusedCell = $derived.by(() => {
@@ -168,6 +179,60 @@
 		return () => {
 			observer.disconnect();
 			cancelAnimationFrame(frame);
+		};
+	});
+
+	$effect(() => {
+		const header = rowNumberOptions?.header ?? '';
+		const label = rowNumberLabel;
+		const viewport = table?.parentElement;
+		void [theme, className, style];
+		if (!label || !viewport) {
+			rowNumberFitWidth = null;
+			return;
+		}
+
+		const fit = () => fitRowNumbers(header, label);
+		fit();
+
+		const fonts = document.fonts;
+		fonts?.addEventListener('loadingdone', fit);
+
+		let frame = 0;
+		const observer = typeof ResizeObserver === 'undefined'
+			? null
+			: new ResizeObserver(() => {
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(fit);
+			});
+		observer?.observe(viewport);
+
+		return () => {
+			fonts?.removeEventListener('loadingdone', fit);
+			observer?.disconnect();
+			cancelAnimationFrame(frame);
+		};
+	});
+
+	$effect(() => {
+		const element = table;
+		const viewport = element?.parentElement;
+		if (!element || !viewport) return;
+
+		const update = () => {
+			const gap = viewport.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom;
+			lastRowAtEdge = Math.abs(gap) < 1;
+		};
+		update();
+
+		viewport.addEventListener('scroll', update, { passive: true });
+		const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+		observer?.observe(viewport);
+		observer?.observe(element);
+
+		return () => {
+			viewport.removeEventListener('scroll', update);
+			observer?.disconnect();
 		};
 	});
 
@@ -328,6 +393,36 @@
 			: columns;
 		fitColumns(targets, options, true);
 		await tick();
+	}
+
+	function measureCellText(cell: HTMLElement | null | undefined, text: string): number {
+		if (!cell || !text) return 0;
+
+		const probe = document.createElement('span');
+		probe.textContent = text;
+		probe.style.cssText =
+			'position: absolute; visibility: hidden; width: max-content; white-space: nowrap';
+		cell.append(probe);
+		const width = probe.getBoundingClientRect().width;
+		probe.remove();
+		if (width <= 0) return 0;
+
+		const computed = getComputedStyle(cell);
+		const box = [
+			computed.paddingLeft,
+			computed.paddingRight,
+			computed.borderLeftWidth,
+			computed.borderRightWidth
+		].reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+		return Math.ceil(Math.ceil(width) + box);
+	}
+
+	function fitRowNumbers(header: string, label: string) {
+		const width = Math.max(
+			measureCellText(table?.querySelector<HTMLElement>('thead th.ssdg-row-number'), header),
+			measureCellText(table?.querySelector<HTMLElement>('tbody th.ssdg-row-number'), label)
+		);
+		if (width > 0) rowNumberFitWidth = width;
 	}
 
 	function entryAt(index: number) {
@@ -880,7 +975,12 @@
 	onpointercancel={endResize}
 />
 
-<div class="ssdg ssdg-theme-{theme} {className}" class:ssdg-is-resizing={!!resizing} {style}>
+<div
+	class="ssdg ssdg-theme-{theme} {className}"
+	class:ssdg-is-resizing={!!resizing}
+	class:ssdg-last-row-at-edge={lastRowAtEdge}
+	{style}
+>
 	<div
 		class="ssdg-viewport"
 		style:height
@@ -1164,6 +1264,14 @@
 
 	.ssdg-table :is(th, td):last-child {
 		border-right: none;
+	}
+
+	.ssdg-last-row-at-edge .ssdg-table {
+		box-shadow: 0 1px var(--ssdg-row-border-color);
+	}
+
+	.ssdg-last-row-at-edge .ssdg-table tbody tr:last-child > :is(th, td) {
+		border-bottom: none;
 	}
 
 	.ssdg-table thead th {

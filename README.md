@@ -275,7 +275,7 @@ interface RowNumbersOptions<TRow> {
 - Right clicking a row number selects that row (unless it is already selected) and opens the context menu with `column: null`.
 - Set `selectable: false` to turn the selection off, like AG Grid's `suppressCellSelectionIntegration`. The row numbers then behave like the header row.
 - The top-left header cell has no selection behaviour, as in AG Grid.
-- `header` defaults to an empty string. `width` defaults to fit the digits of the row count; set it when `format` produces longer text.
+- `header` defaults to an empty string. `width` defaults to the measured width of the header and the last row number (with at least two digits), so it grows with the row count and follows font changes. Set it when `format` produces text that varies in length between rows.
 - Row numbers are left out of CSV and XLSX exports unless `includeInExport` is set.
 
 ## Keyboard
