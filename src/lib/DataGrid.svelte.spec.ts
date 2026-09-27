@@ -994,6 +994,79 @@ describe('row numbers', () => {
 		expect(col.getAttribute('style')).toContain('2ch');
 	});
 
+	describe('measured width', () => {
+		const people = (count: number) =>
+			Array.from(
+				{ length: count },
+				(_, index) => ({ name: `P${index}`, age: index, role: 'user' })
+			);
+
+		function mockText() {
+			const style = document.createElement('style');
+			style.textContent =
+				'.ssdg-row-number { padding: 0 8px; border: 0 solid; border-right-width: 1px; }';
+			document.head.append(style);
+			vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function(
+				this: HTMLElement
+			) {
+				if (this.tagName !== 'SPAN') return new DOMRect();
+				const perChar = this.closest('.ssdg-theme-spreadsheet') ? 6.2 : 7.3;
+				return new DOMRect(0, 0, (this.textContent ?? '').length * perChar, 16);
+			});
+		}
+
+		function width(table: HTMLTableElement) {
+			return table.querySelector<HTMLElement>('col.ssdg-row-number-col')?.style.width;
+		}
+
+		afterEach(() => {
+			vi.restoreAllMocks();
+			document.head.innerHTML = '';
+		});
+
+		it('fits the last row number without cutting it off', () => {
+			mockText();
+			const props = $state<DataGridProps<Person>>({
+				rows: people(150),
+				columns,
+				rowNumbers: true,
+				paginated: true,
+				pageSize: 10
+			});
+			const target = document.createElement('div');
+			document.body.append(target);
+			component = mount(Grid, { target, props });
+			flushSync();
+			const table = target.querySelector('table') as HTMLTableElement;
+
+			expect(width(table)).toBe('39px');
+			expect(table.querySelector('th.ssdg-row-number span')).toBeNull();
+
+			props.rows = people(12000);
+			flushSync();
+			expect(width(table)).toBe('54px');
+
+			props.rows = people(5);
+			flushSync();
+			expect(width(table)).toBe('32px');
+
+			props.theme = 'spreadsheet';
+			flushSync();
+			expect(width(table)).toBe('30px');
+		});
+
+		it('fits the header and formatted labels', () => {
+			mockText();
+
+			const { table } = setup({ rowNumbers: { header: 'Row number' } });
+			expect(width(table)).toBe('90px');
+
+			if (component) unmount(component);
+			const formatted = setup({ rowNumbers: { format: (value, row) => `${value}. ${row.name}` } });
+			expect(width(formatted.table)).toBe('76px');
+		});
+	});
+
 	it('applies the header, width and format options', () => {
 		const { table } = setup({
 			rowNumbers: {
@@ -1166,6 +1239,56 @@ describe('bottom bar', () => {
 
 		expect(target.querySelector('.ssdg-bottom-bar')?.textContent).toContain('3 rows');
 		expect(target.querySelector('select')).toBeNull();
+	});
+});
+
+describe('last row edge', () => {
+	let tableBottom = 100;
+
+	function mockBottoms(initial: number) {
+		tableBottom = initial;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function(
+			this: HTMLElement
+		) {
+			if (this.classList.contains('ssdg-viewport')) return new DOMRect(0, 0, 300, 100);
+			if (this.tagName === 'TABLE') return new DOMRect(0, 0, 300, tableBottom);
+			return new DOMRect();
+		});
+	}
+
+	function scroll(target: HTMLElement, bottom: number) {
+		tableBottom = bottom;
+		target.querySelector('.ssdg-viewport')?.dispatchEvent(new Event('scroll'));
+		flushSync();
+	}
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function atEdge(target: HTMLElement) {
+		return target.querySelector('.ssdg')?.classList.contains('ssdg-last-row-at-edge');
+	}
+
+	it('tracks whether the last row meets the bottom bar while scrolling', () => {
+		mockBottoms(400);
+		const { target } = setup({ paginated: true });
+		expect(atEdge(target)).toBe(false);
+
+		scroll(target, 100.4);
+		expect(atEdge(target)).toBe(true);
+
+		scroll(target, 400);
+		expect(atEdge(target)).toBe(false);
+	});
+
+	it('tracks whether the last row meets the grid border', () => {
+		mockBottoms(100);
+		const { target } = setup();
+		expect(atEdge(target)).toBe(true);
+
+		scroll(target, 60);
+		expect(atEdge(target)).toBe(false);
 	});
 });
 
