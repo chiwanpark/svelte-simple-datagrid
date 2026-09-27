@@ -1,5 +1,13 @@
 # @chiwanpark/svelte-simple-datagrid
 
+## 0.1.1
+
+### Patch Changes
+
+- [#20](https://github.com/chiwanpark/svelte-simple-datagrid/pull/20) [`f9e5545`](https://github.com/chiwanpark/svelte-simple-datagrid/commit/f9e554563e6f78cb1cbb1f3ed2487e7b60ab65c9) Thanks [@chiwanpark](https://github.com/chiwanpark)! - Remove the doubled line under the last row when it touches the bottom bar or the grid border.
+
+- [#20](https://github.com/chiwanpark/svelte-simple-datagrid/pull/20) [`f9e5545`](https://github.com/chiwanpark/svelte-simple-datagrid/commit/f9e554563e6f78cb1cbb1f3ed2487e7b60ab65c9) Thanks [@chiwanpark](https://github.com/chiwanpark)! - Size the row number column by measuring the rendered text so the last digit is no longer cut off.
+
 ## 0.1.0
 
 ### Minor Changes
