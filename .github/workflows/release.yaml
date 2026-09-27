@@ -98,7 +98,7 @@ jobs:
           echo
           echo '```sh'
           echo "npm stage approve ${stage_id:-<stage-id>}"
-          echo 'gh workflow run release.yml'
+          echo 'gh workflow run release.yaml'
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
     - name: Create draft GitHub release

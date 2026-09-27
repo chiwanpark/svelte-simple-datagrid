@@ -11,7 +11,7 @@ Versioning is managed with [Changesets](https://github.com/changesets/changesets
 3. Merge the pull request into `main`. `Release` workflow collects every pending changeset into a `chore(release): version packages` pull request that bumps `package.json`, updates `CHANGELOG.md` and deletes the consumed changeset files.
 4. Merge that version pull request when you want to ship. The same workflow then stages the version on npm with `npm stage publish` and creates a draft GitHub release from the changelog section. The run summary shows the approval command.
 5. Approve the staged version with `npm stage approve <stage-id>`, which asks for 2FA. `npm stage list` also shows the pending stage ids.
-6. Run `gh workflow run release.yml`, or wait for the next push to `main`. The workflow sees the version on npm and publishes the draft release, which creates the `vX.Y.Z` tag.
+6. Run `gh workflow run release.yaml`, or wait for the next push to `main`. The workflow sees the version on npm and publishes the draft release, which creates the `vX.Y.Z` tag.
 
 To drop a staged version instead, run `npm stage reject <stage-id>` and `gh release delete vX.Y.Z`, since the workflow treats an existing draft release as a version waiting for approval.
 
@@ -33,17 +33,17 @@ After `1.0.0`, follow plain semver: `patch` for fixes, `minor` for backwards-com
 2. Open the package page, then `Settings` → `Trusted publisher`, choose GitHub Actions and fill in:
    - Organization or user: `chiwanpark`
    - Repository: `svelte-simple-datagrid`
-   - Workflow filename: `release.yml`
+   - Workflow filename: `release.yaml`
    - Environment: leave empty, unless you add a protected `npm` environment to the `publish` job.
    - Permissions: allow only staged publishing (`npm stage publish`), since the workflow never runs `npm publish`.
 
-   The CLI equivalent is `npm trust github --file release.yml --repo chiwanpark/svelte-simple-datagrid --allow-stage-publish`. Only one configuration is allowed per package, so remove an existing one first with `npm trust list` and `npm trust revoke --id <id>`.
+   The CLI equivalent is `npm trust github --file release.yaml --repo chiwanpark/svelte-simple-datagrid --allow-stage-publish`. Only one configuration is allowed per package, so remove an existing one first with `npm trust list` and `npm trust revoke --id <id>`.
 3. Remove any classic automation token afterwards, and keep two-factor authentication set to "authorization only" so CI publishes are not blocked.
 
 ## Repository settings
 
 - Protect `main`, require the `CI` checks (`Lint and type check`, `Test on Node 22`, `Test on Node 24`, `Verify package contents`), and allow GitHub Actions to create and approve pull requests (`Settings` → `Actions` → `General`) so the version pull request can be opened.
-- The `publish` job needs `id-token: write`; it is already declared per job in `.github/workflows/release.yml`. Trusted publishing attaches a provenance attestation automatically, so `--provenance` is not passed anywhere.
+- The `publish` job needs `id-token: write`; it is already declared per job in `.github/workflows/release.yaml`. Trusted publishing attaches a provenance attestation automatically, so `--provenance` is not passed anywhere.
 
 ## Manual fallback
 
@@ -72,4 +72,4 @@ Commit the `.changeset/pre.json` file so the workflow keeps versioning inside th
 
 ## Tooling versions
 
-`.github/workflows/release.yml` uses `changesets/action@v2`, which is the line compatible with `@changesets/cli` v3. Keep them in step when upgrading; `changesets/action@v1` targets Changesets v2 and will fail against this repository.
+`.github/workflows/release.yaml` uses `changesets/action@v2`, which is the line compatible with `@changesets/cli` v3. Keep them in step when upgrading; `changesets/action@v1` targets Changesets v2 and will fail against this repository.
