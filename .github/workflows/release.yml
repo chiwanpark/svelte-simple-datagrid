@@ -42,7 +42,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
-    name: Publish to npm
+    name: Stage on npm and release
     needs: version
     if: github.repository == 'chiwanpark/svelte-simple-datagrid'
     runs-on: ubuntu-latest
@@ -64,30 +64,45 @@ jobs:
     - run: pnpm install --frozen-lockfile
     - name: Resolve release state
       id: state
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         name=$(node -p 'require("./package.json").name')
         version=$(node -p 'require("./package.json").version')
         published=$(npm view "$name@$version" version 2>/dev/null || true)
+        release=$(gh release view "v$version" --json isDraft --jq 'if .isDraft then "draft" else "published" end' 2>/dev/null || echo missing)
         echo "version=$version" >> "$GITHUB_OUTPUT"
-        if [ -n "$published" ]; then
-          echo "Version $version is already on npm, skipping publish."
-          echo "publish=false" >> "$GITHUB_OUTPUT"
+        if [ -z "$published" ] && [ "$release" = missing ]; then
+          echo "Version $version is not on npm, staging it."
+          echo "action=stage" >> "$GITHUB_OUTPUT"
+        elif [ -z "$published" ] && [ "$release" = draft ]; then
+          echo "Version $version is staged and waiting for approval with npm stage approve."
+          echo "action=none" >> "$GITHUB_OUTPUT"
+        elif [ "$release" = draft ]; then
+          echo "Version $version is approved on npm, publishing the GitHub release."
+          echo "action=release" >> "$GITHUB_OUTPUT"
         else
-          echo "Version $version is not on npm, publishing."
-          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "Nothing to do for version $version (npm: ${published:-not published}, GitHub release: $release)."
+          echo "action=none" >> "$GITHUB_OUTPUT"
         fi
-    - name: Publish package
-      if: steps.state.outputs.publish == 'true'
-      run: npm publish
-    - name: Push git tag
-      if: steps.state.outputs.publish == 'true'
+    - name: Stage package
+      if: steps.state.outputs.action == 'stage'
+      env:
+        VERSION: ${{ steps.state.outputs.version }}
       run: |
-        git config user.name 'github-actions[bot]'
-        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-        pnpm release:tag
-        git push --tags
-    - name: Create GitHub release
-      if: steps.state.outputs.publish == 'true'
+        set -o pipefail
+        npm stage publish | tee /tmp/stage.log
+        stage_id=$(sed -n 's/^+ .* (staged with id \(.*\))$/\1/p' /tmp/stage.log)
+        {
+          echo "Version $VERSION is staged on npm. Approve it with 2FA:"
+          echo
+          echo '```sh'
+          echo "npm stage approve ${stage_id:-<stage-id>}"
+          echo 'gh workflow run release.yml'
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Create draft GitHub release
+      if: steps.state.outputs.action == 'stage'
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         VERSION: ${{ steps.state.outputs.version }}
@@ -101,7 +116,13 @@ jobs:
           ' CHANGELOG.md > /tmp/release-notes.md
         fi
         if [ -s /tmp/release-notes.md ]; then
-          gh release create "v$VERSION" --title "v$VERSION" --notes-file /tmp/release-notes.md
+          gh release create "v$VERSION" --draft --target "$GITHUB_SHA" --title "v$VERSION" --notes-file /tmp/release-notes.md
         else
-          gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          gh release create "v$VERSION" --draft --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
         fi
+    - name: Publish GitHub release
+      if: steps.state.outputs.action == 'release'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        VERSION: ${{ steps.state.outputs.version }}
+      run: gh release edit "v$VERSION" --draft=false
